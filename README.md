@@ -76,7 +76,7 @@ Before you begin the deployment process, ensure your environment meets the follo
  - Kubernetes cluster v 1.29 or later
  - Helm v 3.12 or later
  - Messaging system: Apache Kafka v 3.4.0 or later OR Redpanda v 23.11 or later 
- - Database: MongoDB v 5 or later OR Azure Cosmos DB for MongoDB (vCore) OR DocumentDB for AWS deployment.
+ - Database: MongoDB v 8.0 or later OR Azure Cosmos DB for MongoDB (vCore) OR DocumentDB for AWS deployment.
  - Enablement of an OIDC provider.
  - HCL UnO agent: Java SDK21.
 
