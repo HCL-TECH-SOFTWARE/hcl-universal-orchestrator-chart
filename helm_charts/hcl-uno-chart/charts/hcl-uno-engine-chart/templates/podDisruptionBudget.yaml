@@ -1,9 +1,9 @@
 ######################################################################
 # Licensed Materials Property of HCL*
-  # (c) Copyright HCL Technologies Ltd. 2021, 2024. All rights reserved.
-  #
-  # * Trademark of HCL Technologies Limited
-  ######################################################################
+# (c) Copyright HCL Technologies Ltd. 2021, 2024. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+######################################################################
 {{- if .Values.deployment.global.podDisruptionBudget.enabled }}
 
 {{ $fullName := include "fullname" . }}
@@ -12,7 +12,7 @@
 {{- $myList := include "uno.microservices.list" . | fromJsonArray -}}
 {{- range $myList}}
 {{- $k := . -}}
-
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -26,8 +26,9 @@ spec:
     matchLabels:
       app: {{ $fullName }}-{{ $k }}
       app.kubernetes.io/name: {{ $root.Release.Name | quote }}
-      uno.microservice.version: 2.1.3.0-beta1
+      uno.microservice.version: 2.1.4.0-beta1
 
+
+{{ end }}
 ---
-{{- end }}
 {{- end }}

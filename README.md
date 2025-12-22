@@ -14,11 +14,11 @@ To respond to the growing request to make automation opportunities more accessib
 
 HCL Universal Orchestrator is a complete, modern solution to orchestrate calendar-based and event-driven tasks, business and IT processes. It enables organizations to gain complete visibility and control over attended or unattended workflows. From a single point of control, it supports multiple platforms and provides advanced integration with enterprise applications including ERP, Business Analytics, File Transfer, Big Data, and Cloud applications.
 
-For more information about HCL Universal Orchestrator, see the product documentation library in [HCL Universal Orchestrator documentation](https://help.hcltechsw.com/UnO/v2.1.2/index.html).
+For more information about HCL Universal Orchestrator, see the product documentation library in [HCL Universal Orchestrator documentation](https://help.hcl-software.com/UnO/v2.1.3/index.html).
 
 ## Details
 
-All microservices and the UnO Console are installed. The Dynamic Workload Console is available by enabling a specific parameter in the values.yaml file.
+All microservices and the UnO Console are installed.
 
 To achieve high availability in an HCL Universal Orchestrator environment, the minimum base configuration is composed of 2 replicas of all microservices.
 
@@ -37,40 +37,76 @@ HCL Universal Orchestrator supports all the platforms supported by the runtime p
 
 ### OpenShift support
 You can deploy HCL Universal Orchestrator on OpenShift by following the instruction in this documentation and using helm charts. 
-Ensure you modify the value of the `waconsole.console.exposeServiceType` parameter from `LoadBalancer` to `Routes`.
-	
+
+For a successful deployment on OCP, you must configure specific parameters in the `values.yaml` file using the URL assigned to the route exposing the API gateway.
+
+**1. Configure authentication:**
+By default, the value for the `apiHostname` parameter is set to `gateway`. Update it to ensure smooth operation within the OCP environment.
+
+**2. Optional - Configure endpoint for external AI agents:**
+To ensure the console correctly generates connection links for external agents (such as the MCP AI agent), you must explicitly define the gateway endpoint.
+
+Update your `values.yaml` as follows:
+
+
+    authentication:
+      # apiHostname specifies the api gateway hostname and is used only when ingress.enabled is set to false.
+      apiHostname: "Gateway_URL"
+
+    uno:
+      config:
+        endpoint:
+          # gateway specifies the OpenShift Route assigned to the API gateway.
+          # This is required for generating correct links for external AI agents.
+          gateway: "https://Gateway_URL"
+
+Where Gateway_URL stands for the fully qualified URL assigned to the route exposing the API gateway (e.g., my-uno-gateway.apps.cluster.domain.com).
+This ensures smooth operation within the OCP environment and facilitates communication with the gateway via its externally accessible address.
+
 ## Accessing the container images
 
-
-You do not need a license key to access the container images. Instead, use the same credentials you use for HCL services through OIDC provider to pull the necessary images from the HCL Container Registry. The images are as follows:
+You can access the HCL Universal Orchestrator chart and container images from the Entitled Registry. See [Create the secret](#creating-the-secret) for more information about accessing the registry. The images are as follows:
 
 Core:
 
- - hcl-uno-saas-controller
+ - hcl-uno-automation-plugins
+ - hcl-uno-agent
  - hcl-uno-agentmanager
+ - hcl-uno-audit
+ - hcl-uno-chart
+ - hcl-uno-console
+ - hcl-uno-eventmanager
+ - hcl-uno-executor
+ - hcl-uno-external-pod
  - hcl-uno-gateway
+ - hcl-uno-genai
  - hcl-uno-iaa
+ - hcl-uno-notification
+ - hcl-uno-orchestrator
  - hcl-uno-scheduler
  - hcl-uno-storage
- - hcl-uno-toolbox
- - hcl-uno-audit
+ - hcl-uno-tenantmanager
+				
  - hcl-uno-timer
- - hcl-uno-executor
- - hcl-uno-eventmanager 
- - hcl-uno-orchestrator
- - hcl-uno-console
- - hcl-uno-notification
- - hcl-uno-external-pod
+ - hcl-uno-toolbox
+ 
+
+				  
+					   
+					   
 
 UnO AI Pilot:
 
  - hcl-uno-pilot-notification
+ - hcl-aipilot-backend
  - hcl-aipilot-core
  - hcl-aipilot-actions
  - hcl-aipilot-nlg
- - pgvector
+		   
  
- UnO Agentic AI Builder:
+						
+
+UnO Agentic AI Builder:
 
  - hcl-agentic-ams
  - hcl-agentic-runner
@@ -80,11 +116,11 @@ UnO AI Pilot:
 Before you begin the deployment process, ensure your environment meets the following prerequisites:
 
 **Mandatory**
- - Kubectl v 1.29.4 or later
- - Kubernetes cluster v 1.29 or later
- - Helm v 3.12 or later
- - Messaging system: Apache Kafka v 3.4.0 or later OR Redpanda v 23.11 or later 
- - Database: MongoDB v 5 or later OR Azure Cosmos DB for MongoDB (vCore) OR DocumentDB v 5 for AWS deployment.
+ - Kubectl v 1.32 or later
+ - Kubernetes cluster v 1.32 or later
+ - Helm v 4.0.0 or later
+ - Messaging system: Apache Kafka v 3.9.1 or later OR Redpanda v 25.1.12 or later 
+ - Database: MongoDB v 8 or later OR Azure Cosmos DB for MongoDB (vCore) OR DocumentDB v 5 Instance-base cluster for AWS deployment.
  - Enablement of an OIDC provider.
  
  **For Agentic AI Builder**
@@ -95,8 +131,25 @@ Before you begin the deployment process, ensure your environment meets the follo
   * Ingress Controller: Manages ingress traffic rules.
   * APISIX Dashboard: Web interface for managing gateway configurations.
 
-**Strongly recommended**
+**For Agentic AI Builder**
+ - Valkey (Redis-compatible): Used as the in-memory data store. Acts as a drop-in replacement for Redis.
+ - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/v2.1.3/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
+																									 
+														   
+													  
+																		
 
+
+**Note:** If you want to deploy both the Agentic AI Builder and the AI Pilot, you only need one Percona pgvector instance. 
+
+
+ **For UnO AI Pilot**
+ - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/v2.1.3/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
+
+ **Note:** If you want to deploy both the Agentic AI Builder and the AI Pilot, you only need one Percona pgvector instance.
+
+ 
+**Strongly recommended**				
  - Jetstack cert-manager
 
   We strongly recommend the use of a cert-manager as it automatically generates and updates the required certificates. You can choose not to use it, in which case you need to:
@@ -129,14 +182,16 @@ The following are prerequisites specific to each supported cloud provider:
  
 | Component | Container resource limit | Container resource request |
 |--|--|--|
-|**uno-orchestrator microservice**  | CPU: 2, Memory: 1 GB  |CPU: 0.6, Memory: 1 GB|
-|**Each remaining microservice**  | CPU: 2, Memory: 1 GB  |CPU: 0.6, Memory: 0.5 GB  |
-|**Dynamic Workload Console**  | CPU: 4, Memory: 16 GB  |CPU: 1, Memory: 4 GB, Storage: 5 GB  |
+|**uno-orchestrator microservice**  | CPU: 2, Memory: 1 GB  |CPU: 0.3, Memory: 0.5 GB|
+|**Each remaining microservice**  | CPU: 2, Memory: 1 GB  |CPU: 0.3, Memory: 0.5 GB  |
+																							   
 |**AIPilot-core** | CPU : 1, Memory: 2.5GB | CPU 0.5, Memory: 2GB
 |**AIPilot-action**| CPU: 0.3, Memory: 0.3GB | CPU: 0.1, Memory: 0.2GB
 |**AIPilot-nlg**| CPU: 0.3, Memory: 0.5GB | CPU: 0.1, Memory: 0.3GB
 |**AIPilot-rag**| CPU: 0.8, Memory: 1Gi | CPU: 0.2 , Memory: 0.2Gi
-|**PgVector**| CPU: 0.15 Memory: 0.192GB Ephemeral-storage : 2Gi |  CPU: 0.1 Memory: 0.1Gi Ephemeral-storage: 50Mi
+|**agentic-ams** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi
+|**agentic-runner** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi
+|**agentic-cm** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi																	
 
 No disk space is required for the microservices, however, at least 100 GB are recommended for Kafka and 100 GB for MongoDB. Requirements vary depending on your workload.
 
@@ -177,7 +232,7 @@ Obtain your entitlement key and store it on your cluster by creating a [Kubernet
 
 ### Deploying the product components		
 
-Before starting to deploy the product components, make sure that all the [prerequisites](#prerequisites) are met.
+Before starting to deploy the product components, make sure that all the [prerequisites](#prerequisites) are met. The username to log in the HCL Entitled Registry is the same username used to login into https://hclcr.io/harbor/projects, and the password is the HCL Entitled Registry CLI secret that can be found in the User Profile.
 
 To deploy HCL Universal Orchestrator, perform the following steps:
 
@@ -187,7 +242,7 @@ To deploy HCL Universal Orchestrator, perform the following steps:
    
 2. Pull the Helm chart:
 
-        helm pull oci://hclcr.io/uno-ea/hcl-uno-chart --version 2.1.3-beta1
+        helm pull oci://hclcr.io/uno-ea/hcl-uno-chart --version 2.1.4-beta1
 
 **Note:** If you want to download a specific version of the chart use the `--version` option in the `helm pull` command.
 	
@@ -303,55 +358,58 @@ The following are some useful Helm commands:
 
 Multitenancy is a new architecture that enables a single HCL Universal Orchestrator instance to serve multiple, independent tenants. Each tenant operates with its own data, configuration, and user permissions, ensuring strict separation and security.
 
-Multitenancy must be configured by editing the **values.yaml** file. The multitenant configuration enables the deployment of the `hcl-uno-saas-controller` microservice.
+Multitenancy must be configured by editing the **values.yaml** file. The multitenant configuration enables the deployment of the `hcl-uno-tenantmanager` microservice.
 
-Below, you can find the main steps to enable and set up a multitenant environment on HCL Universal Orchestrator:
+Follow the steps below to enable and set up a multitenant environment on HCL Universal Orchestrator:
 
  1. Open the **values.yaml** file and go to the `uno.config.multitenant` section.
 
  2. Enable multitenancy by setting the `uno.config.multitenant.enabled` parameter to `true`.
 
- 3. Edit the regular expression in the `uno.config.multitenant.hostnamePattern` parameter according to the hostname of your cluster.
+																																	
 
- 4. Define the tenant administrators by editing the `uno.config.multitenant.admins`. You have three options to specify tenant administrators:
+ 3. Define the tenant administrators by editing the `uno.config.multitenant.admins`. You have three options to specify tenant administrators:
   
    - **userIds**: Authorize as administrators specific user IDs.
    - **groupIDs**: Authorize as administrators an entire group of IDs.
    - **userIdFilters**: Authorize as administrators every user that has a specific email domain.
 
- 5. Edit all the optional parameters of the `uno.config.multitenant` section according to your needs.
+ 4. Edit all the optional parameters of the `uno.config.multitenant` section according to your needs.
 
- 6. In the `uno.config.multitenant.controllerIngressCertIssuer`parameter, enter the secret name of the certificate that you want to use.
+ 5. Optionally, in the `uno.config.multitenant.tenantManagerIngressCertIssuer` parameter, enter the secret name of the issuer of the certificate that you want to use.
 
- 7. After the deployment, instance a tenant by accessing the URL exposed by the `hcl-uno-saas-controller` microservice.
+ 6. After the deployment, you can create a tenant by accessing the URL exposed by the `hcl-uno-tenantmanager` microservice.
 
-Your multitenant environment is ready to be used.
+Your multitenant environment is ready.
 
-**Human task e-mail notifications**
+**Email notifications**
 
-Human tasks are associated with queues, which act as containers for Human tasks. When a Human task is created, it references a specific queue. A queue is defined by a folder and a name, and it can have optional e-mail addresses to notify users of new tasks:
+To enable e-mail notifications, edit the **values.yaml** file to set the `uno.mail.enabled` parameter to `true`, and then specify the required Simple Mail Transfer Protocol (SMTP) configuration parameters and credentials. 
 
-- **Group e-mail**: An optional email address used for notifications when new tasks are added.
-  
-- **Sender name**:  An optional **display name** used for email notifications originating from a specific task queue. If specified, the **sender name** overrides the global display name defined in `config.mail.from`. 
-  
-  To enable e-mail notifications, edit the **values.yaml** file to set the `uno.mail.enabled` parameter to `true`, and then specify the required Simple Mail Transfer Protocol (SMTP) configuration parameters and credentials.
+Email notifications are sent from a default sender, which is configured using the `config.mail.from` parameter of the **values.yaml** file. The parameter contains an email address, and it can optionally contain a display name in the following format:
+  																																																				   
 
- **Notification templates**
+      config.mail.from = DisplayName <email@address.com>
+      
+For example:
 
-  Two customizable HTML templates are used for notifications, one for task creation and one for task assignment or unassignment. By default, the two templates contain:
+      config.mail.from = John <noreply@uno.com>
 
-  - Basic human task information such as task ID, task title, and the name of the queue where the human task was created.
-    
-  - A button with a direct link to the task in the HCL Universal Orchestrator UI, with which the user can open the form and complete the task.
-    
-  To customize the HTML templates, edit the following sections of the **values.yaml** file:
+In this case, the recipient receives emails originating from John with the sending address noreply@uno.com.
+	
 
-For more information about email notifications and notification templates, see [Human tasks](https://help.hcl-software.com/UnO/v2.1.2/Focused_Scenarios/Task/c_human_task.html).
+On multitenant environments, you can edit the display name used for email notifications by editing the `uno.config.multitenant.eMailSender` parameter. 
 
 **AI Agents**
 
-You can create an AI agent using three different agent types: External MCP, Basic, and Agentic AI Builder. For more information, see [Managing agent types in the AI Agent] (https://help.hcl-software.com/UnO/v2.1.2/Orchestrating/to_manage_agent_types.html).
+You can create an AI agent using three different agent types: External MCP, Basic, and Agentic AI Builder. For more information, see [Managing agent types in the AI agent
+](https://help.hcl-software.com/UnO/v2.1.3/Orchestrating/to_manage_agent_types.html).																					 
+
+**Generative workflows and knowledge base**
+
+You can enable the generative features of the AI Agent and the UnO AI Pilot for both workflow generation and generative knowledge base by setting the following parameter in the **values.yaml** file of the Helm chart to true:
+
+    uno.config.genai.enabled: true
 
 **UnoAIPilot**
 
@@ -360,18 +418,13 @@ You can enable UnoAIPilot by configuring the **values.yaml** file as follows:
 		global.enableUnoAIPilot: true
   
 
+**Agentic AI Builder**
 
-**Generative AI**
 
-You can enable generative AI features by requesting access. You will then receive a specific genAikey to insert into your values.yaml file here:
-
-    uno:
-      config:
-        genai:
-          enabled: true
-          serviceUrl: https://genai.hcluno.mywire.org
-          betaKey: <GenAIKey>
-
+You can enable AgenticBuilder by configuring the **values.yaml** file as follows: 
+		
+		global.enableAgenticAIBuilder: true
+  
 
 
 **Session timeout**
@@ -386,11 +439,6 @@ To enable the log out option, set the following parameter in the **values.yaml**
 
      uno.config.console.enableLogout: true
 
-**Generative workflows and knowledge base**
-
-You can enable the generative features of the UnO AI Pilot for both workflow generation and generative knowledge base by setting the following parameter in the **values.yaml** file of the Helm chart to true:
-
-    uno.config.genai.enabled: true
 
 **Justifications**
 
@@ -404,7 +452,7 @@ You can configure different justification levels by setting the related paramete
      uno.config.engine.justificationTicketNumberRequire: true
      uno.config.engine.justificationDescriptionRequired: true
 
-For more information about justifications, see [Keeping track of changes in your environment](https://help.hcl-software.com/UnO/v2.1.2/Deployment/justifications.html).
+For more information about justifications, see [Keeping track of changes in your environment](https://help.hcl-software.com/UnO/v2.1.3/Deployment/justifications.html).
 
 **Encryption**
 
@@ -568,8 +616,10 @@ When using custom certificates make sure to update the following fields:
 			uno.hclaipilot.rag.certificates.caPairSecretName: <the secret name of the CA you want to use to sign the certificate created by default>
 			uno.hclaipilot.rag.certificates.certSecretName: <the name of the custom certificate you want to use>
 	
-			uno.hclaipilot.pgvector.tls.caPairSecretName: <the secret name of the CA you want to use to sign the certificate created by default>
-			uno.hclaipilot.pgvector.tls.certificatesSecret: <the name of the custom certificate you want to use>
+            
+			uno.agenticAIBuilder.certificates.useCustomizedCert: true
+            uno.agenticAIBuilder.certificates.caPairSecretName: <the secret name of the CA you want to use to sign the certificate created by default>
+            uno.agenticAIBuilder.certificates.certSecretName: <the name of the custom certificate you want to use>
 
 ## Metrics monitoring 
 
@@ -579,7 +629,7 @@ HCL Universal Orchestrator uses Grafana to display performance data related to t
 
 The following metrics are collected and available to be visualized in the preconfigured Grafana dashboard. The dashboard is named **<uno_namespace> <uno_release_name>**:
 
-For a list of metrics exposed by HCL Universal Orchestrator, see [Exposing metrics to monitor your workload](https://help.hcltechsw.com/UnO/v2.1.2/Monitoring/awsrgmonprom.html).
+For a list of metrics exposed by HCL Universal Orchestrator, see [Exposing metrics to monitor your workload](https://help.hcl-software.com/UnO/v2.1.3/Monitoring/awsrgmonprom.html).
   
   ### Setting the Grafana service
 Before you set the Grafana service, ensure that you have already installed Grafana and Prometheus on your cluster. For information about deploying Grafana see [Install Grafana](https://github.com/helm/charts/blob/master/stable/grafana/README.md). For information about deploying the open-source Prometheus project see [Download Prometheus](https://github.com/helm/charts/tree/master/stable/prometheus).
@@ -641,7 +691,7 @@ To ensure a user can import, export, or delete the custom knowledge base, they m
 
 ## Documentation
 
-To access the complete product documentation library for HCL Universal Orchestrator, see [HCL Universal Orchestrator documentation](https://help.hcltechsw.com/UnO/v2.1.2/index.html).
+To access the complete product documentation library for HCL Universal Orchestrator, see [HCL Universal Orchestrator documentation](https://help.hcl-software.com/UnO/v2.1.3/index.html).
 
 
 

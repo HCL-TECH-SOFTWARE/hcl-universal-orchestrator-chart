@@ -117,6 +117,10 @@ spec:
               containerPort: 7777
 {{- end }} 
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: QUARKUS_HTTP_HTTP2
               value: "true"
             - name: QUARKUS_HTTP_SSL_CERTIFICATE_KEY_STORE_PASSWORD
@@ -138,7 +142,18 @@ spec:
               value: "{{  (index $root.Values.deployment $k ).databaseName | default $root.Values.config.multitenant.commonTenantDatabaseName }}"
 {{- else }}
             - name: UNO_MONGODB_DATABASE
+{{- if $root.Values.config.multitenant.enabled }}
+              value: "{{  (index $root.Values.deployment $k ).databaseName | default $root.Values.config.multitenant.commonTenantDatabaseName }}"
+{{- else }}
               value: "{{  (index $root.Values.deployment $k ).databaseName | default $root.Values.database.databaseName }}"
+{{- end }}
+{{- if or ((index $root.Values.deployment $k ).databaseMinPoolSize) ($root.Values.database.databaseMinPoolSize) }}
+            - name: QUARKUS_MONGODB_MIN_POOL_SIZE
+              value: "{{  (index $root.Values.deployment $k ).databaseMinPoolSize | default $root.Values.database.databaseMinPoolSize }}"
+{{- end }}
+{{- if or ((index $root.Values.deployment $k ).databaseMaxPoolSize) ($root.Values.database.databaseMaxPoolSize) }}
+            - name: QUARKUS_MONGODB_MAX_POOL_SIZE
+              value: "{{  (index $root.Values.deployment $k ).databaseMaxPoolSize | default $root.Values.database.databaseMaxPoolSize }}"
 {{- end }}
 {{ include "common.env.variable"  $root | indent 12 }}
 {{ include "common.custom.env.variable"  $root | indent 12 }}
@@ -163,8 +178,13 @@ spec:
 {{- if or (eq $k "agentmanager") (eq $k "console-aio") }}
 {{ include "uno.plugins.max.size" $root | indent 12 }}
 {{- end}}
-{{- if (eq $k "saas-controller") }}
-{{ include "uno.saas-controller.env" $root | indent 12 }}
+{{- if (eq $k "tenantmanager") }}
+{{ include "uno.tenantmanager.env" $root | indent 12 }}
+{{- if $root.Values.config.multitenant.eMailTenantReadyTemplate }}
+            #uno.tenantmanager.mail.tenant.created.template
+            - name: UNO_TENANTMANAGER_MAIL_TENANT_CREATED_TEMPLATE
+              value: "/config/email-templates/tenant-ready.html"
+{{- end}}
 {{- end}}
 {{- if (($root.Values).global).enableUnoAIPilot }}
 {{- if eq $k "pilot-notification" }}
@@ -193,10 +213,18 @@ spec:
 {{- end}}
 {{- end}}
 {{- if $root.Values.global.enableAgenticAIBuilder }}
-            - name : UNO_AGENTIC_AI_SERVICE_URL
-              value: https://{{ $root.Values.agenticAIBuilder.common.apisix.serviceName }}:{{ $root.Values.agenticAIBuilder.common.apisix.httpsGatewayPort }}
-            - name : UNO_AGENTIC_AI_WSS_CLIENT_URL
-              value: wss://{{ $root.Values.agenticAIBuilder.common.apisix.serviceName }}:{{ $root.Values.agenticAIBuilder.common.apisix.httpsGatewayPort }}
+            - name : UNO_AGENTIC_AI_AMS_SERVICE_URL
+              value: https://{{ $fullName }}-agentic-{{ $root.Values.agenticAIBuilder.ams.name }}:{{ $root.Values.agenticAIBuilder.ams.port }}
+            - name : UNO_AGENTIC_AI_RUNNER_PROD_SERVICE_URL
+              value: https://{{ $fullName }}-agentic-{{ $root.Values.agenticAIBuilder.runner.name }}-prod:{{ $root.Values.agenticAIBuilder.runner.port }}
+            - name : UNO_AGENTIC_AI_RUNNER_TEST_SERVICE_URL
+              value: https://{{ $fullName }}-agentic-{{ $root.Values.agenticAIBuilder.runner.name }}-test:{{ $root.Values.agenticAIBuilder.runner.port }}
+            - name : UNO_AGENTIC_AI_CM_SERVICE_URL
+              value: https://{{ $fullName }}-agentic-{{ $root.Values.agenticAIBuilder.credentialManager.name }}:{{ $root.Values.agenticAIBuilder.credentialManager.port }}
+            - name: UNO_AGENTIC_AI_RUNNER_PROD_WSS_URL
+              value: wss://{{ $fullName }}-agentic-{{ $root.Values.agenticAIBuilder.runner.name }}-prod:{{ $root.Values.agenticAIBuilder.runner.port }}
+            - name: UNO_AGENTIC_AI_RUNNER_TEST_WSS_URL
+              value: wss://{{ $fullName }}-agentic-{{ $root.Values.agenticAIBuilder.runner.name }}-test:{{ $root.Values.agenticAIBuilder.runner.port }}
 {{- end}}
 {{- if or (eq $k "gateway") (eq $k "console-aio")  }}
 {{- if or ((($root.Values).global).enableConsole) ($dwcsecretname) }}
@@ -233,7 +261,7 @@ spec:
 {{- if or (eq $k "console") (eq $k "console-aio")   }}
 {{ include "uno.sofy.env.variables" $root | indent 12 }}
 {{- end}}
-{{- if or (eq $k "console") (eq $k "console-aio") (eq $k "saas-controller")  }}
+{{- if or (eq $k "console") (eq $k "console-aio") (eq $k "tenantmanager")  }}
 {{ include "uno.oidc.env.variable" $root | indent 12 }}
 {{- end}}
 {{ include "uno.secret.volumes.mounts" $root | indent 10 }}
@@ -248,13 +276,19 @@ spec:
             - name: credentials
               mountPath: /security/credentials
 {{- end}}
+{{- if eq $k "tenantmanager" }}
+{{- if $root.Values.config.multitenant.eMailTenantReadyTemplate }}
+            - name: email-templates
+              mountPath: /config/email-templates
+{{- end }}
+{{- end}}
 
 {{- if or (eq $k "console") (eq $k "console-aio") }}
             - name: engines
               mountPath: /config/engines
 {{- end }}   
 
-{{- if or (eq $k "audit") (eq $k "console-aio") (eq $k "saas-controller") }}
+{{- if or (eq $k "audit") (eq $k "console-aio") (eq $k "tenantmanager") }}
             - name: emptydir
               mountPath: /opt/app/audit
         - name: audit-log-sidecar
@@ -305,6 +339,17 @@ spec:
           secret:
             defaultMode: 0644
             secretName: {{ $root.Release.Name }}-cloud-credentials
+{{- end}}
+{{- if eq $k "tenantmanager" }}
+{{- if $root.Values.config.multitenant.eMailTenantReadyTemplate }}
+        - name: email-templates
+          configMap:
+            name: {{ $root.Release.Name }}-email-templates
+            optional: true
+            items:
+            - key: tenant-ready.html
+              path: tenant-ready.html
+{{- end}}
 {{- end}}
 {{- if or (eq $k "console") (eq $k "console-aio") }}
         - name: engines
