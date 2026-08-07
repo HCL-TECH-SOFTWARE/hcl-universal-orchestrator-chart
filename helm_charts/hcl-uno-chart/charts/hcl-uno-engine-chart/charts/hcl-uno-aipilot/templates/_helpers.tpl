@@ -270,15 +270,24 @@ Define the resources if found on the container values
 
 
 {{- define "aipilot.pull.secret" -}}
+{{- $secrets := list -}}
+
+{{- if .Values.global.hclImagePullSecret }}
+{{- $secrets = append $secrets (tpl .Values.global.hclImagePullSecret .) -}}
+{{- end }}
+
+{{- if .Values.additionalPullSecret }}
+{{- $secrets = append $secrets (tpl .Values.additionalPullSecret .) -}}
+{{- end }}
+
+{{- $secrets = append $secrets (printf "sa-%s" .Release.Namespace) -}}
+{{- $secrets = append $secrets "sa-uno" -}}
+
+{{- $unique := uniq $secrets -}}
 imagePullSecrets:
-  {{- if .Values.global.hclImagePullSecret  }}
-    - name: {{ tpl .Values.global.hclImagePullSecret .}}
-  {{- end }}
-  {{- if .Values.additionalPullSecret }}
-    - name: {{ tpl .Values.additionalPullSecret . }}
-  {{- end }}
-    - name: sa-{{ .Release.Namespace }}
-    - name: sa-uno
+{{- range $unique }}
+  - name: {{ . }}
+{{- end }}
 {{- end -}}
 
 
@@ -316,7 +325,15 @@ imagePullSecrets:
 {{- end -}}
 
 {{- define "sltCommon.postgres.env.password" -}}
+{{- if or ( .Values.postgres.postgresPassword) (and ( .Values.postgres.postgresPasswordSecretName) ( .Values.postgres.postgresPasswordSecretKey)) }}
 {{ include "sltCommon.env.valueOrSecret" (list . "POSTGRES_PASSWORD" "postgres.postgresPassword") }}
+{{- else }}
+- name: POSTGRES_PASSWORD
+  valueFrom: 
+    secretKeyRef:
+      name: {{ printf "%s-postgres-password" .Release.Name | trunc 63 | trimSuffix "-" }}
+      key: postgres-password
+{{- end -}}
 {{- end -}}
 
 {{- define "sltCommon.init.postgres.certificate.env" -}}

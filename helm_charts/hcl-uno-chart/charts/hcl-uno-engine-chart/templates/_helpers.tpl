@@ -46,7 +46,7 @@
 {{- $myList =  append $myList "pilot-notification" -}}
 {{- end -}}
 
-{{- if .Values.config.multitenant.enabled }}
+{{- if eq "true" (include "uno.enableMultitenant" .) }}
 {{- $myList =  append $myList "tenantmanager" -}}
 {{- end -}}
 
@@ -59,12 +59,26 @@
 {{ toJson $myList }}
 {{- end -}}
 
+{{- define "uno.microservices.externalservices.list" -}}
+{{- $fullName := include "fullname" . -}}
+{{- $myList := list -}}
+{{- if .Values.global.enableAgenticAIBuilder -}}
+{{- $myList = append $myList (printf "https://%s-agentic-%s-headless:%s" $fullName .Values.agenticAIBuilder.ams.name (toString .Values.agenticAIBuilder.ams.port)) -}}
+{{- end -}}
+{{ toJson $myList }}
+
+{{- end -}}
+
 {{- define "uno.microservices.services.urls" -}}
 {{- $fullName := include "fullname" . -}}
 {{- $myList := include "uno.microservices.list" . | fromJsonArray -}}
+{{- $externalList := include "uno.microservices.externalservices.list" . | fromJsonArray -}}
 {{- $names := list -}}
 {{- range $myList }}
   {{- $names = append $names (printf "https://%s-%s-headless:8443" $fullName .) -}}
+{{- end }}
+{{- range $externalList }}
+  {{- $names = append $names . -}}
 {{- end }}
 {{- join "," $names -}}
 {{- end -}}
@@ -105,6 +119,25 @@
 {{- end -}}
 
 {{/*
+Resolves whether multitenant mode is enabled using either:
+- .Values.config.multitenant.enabled
+- .Values.global.enableMultitenant
+
+Usage:
+{{- if eq "true" (include "uno.enableMultitenant" .) }}
+...
+{{- end }}
+*/}}
+{{- define "uno.enableMultitenant" -}}
+{{- $config := .Values.config | default dict -}}
+{{- $multitenant := $config.multitenant | default dict -}}
+{{- $global := .Values.global | default dict -}}
+{{- $configEnabled := eq (toString ($multitenant.enabled | default false)) "true" -}}
+{{- $globalEnabled := eq (toString ($global.enableMultitenant | default false)) "true" -}}
+{{- or $configEnabled $globalEnabled -}}
+{{- end -}}
+
+{{/*
 Returns the health probes (Startup, Liveness, Readiness)
 */}}
 {{- define "uno.probes" -}}
@@ -129,7 +162,7 @@ readinessProbe:
   initialDelaySeconds: {{ $v.readiness.initialDelaySeconds | default 15 }}
   periodSeconds: {{ $v.readiness.periodSeconds | default 5 }}
   failureThreshold: {{ $v.readiness.failureThreshold | default 40 }}
-  timeoutSeconds: 5
+  timeoutSeconds: {{ $v.readiness.timeoutSeconds | default 5 }}
 
 livenessProbe:
   httpGet:
@@ -139,7 +172,7 @@ livenessProbe:
   initialDelaySeconds: {{ $v.liveness.initialDelaySeconds | default 60 }}
   periodSeconds: {{ $v.liveness.periodSeconds | default 10 }}
   failureThreshold: {{ $v.liveness.failureThreshold | default 3 }}
-  timeoutSeconds: 5
+  timeoutSeconds: {{ $v.liveness.timeoutSeconds | default 5 }}
 
 {{- end -}}
 
@@ -228,7 +261,7 @@ prometheus.io/path: "/q/metrics"
 {{- end -}}
 
 {{- define "uno.common.label" -}}
-uno.microservice.version: 2.1.4.0-beta2
+uno.microservice.version: 2.1.7.0-beta1
 app.kubernetes.io/name: {{ .Release.Name | quote}}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -261,6 +294,9 @@ release: {{ .Release.Name | quote }}
 # uno.tenantmanager.region
 - name: UNO_TENANTMANAGER_REGION
   value: {{ .Values.config.multitenant.region | quote }}
+# uno.tenantmanager.whitelabel
+- name: UNO_TENANTMANAGER_WHITELABEL
+  value: {{ .Values.config.multitenant.whitelabel | quote }}
 # uno.tenantmanager.trialMaxJobPerDay
 - name: UNO_TENANTMANAGER_TRIALMAXJOBPERDAY
   value: {{ .Values.config.multitenant.trialMaxJobPerDay | quote }}
@@ -273,15 +309,24 @@ release: {{ .Release.Name | quote }}
 # uno.tenantmanager.token.per.job
 - name: UNO_TENANTMANAGER_TOKEN_PER_JOB
   value: {{ .Values.config.multitenant.tokenPerJob | quote }}
-# uno.tenantmanager.authorization.userIds
-- name: UNO_TENANTMANAGER_AUTHORIZATION_USERIDS
+# uno.tenantmanager.authorization.admin.userIds
+- name: UNO_TENANTMANAGER_AUTHORIZATION_ADMIN_USERIDS
   value: {{ .Values.config.multitenant.admins.userIds | join "," | quote }}
-# uno.tenantmanager.authorization.groupIds
-- name: UNO_TENANTMANAGER_AUTHORIZATION_GROUPIDS
+# uno.tenantmanager.authorization.admin.groupIds
+- name: UNO_TENANTMANAGER_AUTHORIZATION_ADMIN_GROUPIDS
   value: {{ .Values.config.multitenant.admins.groupIds | join "," | quote }}
-# uno.tenantmanager.authorization.userIdFilters
-- name: UNO_TENANTMANAGER_AUTHORIZATION_USERIDFILTERS
+# uno.tenantmanager.authorization.admin.userIdFilters
+- name: UNO_TENANTMANAGER_AUTHORIZATION_ADMIN_USERIDFILTERS
   value: {{ .Values.config.multitenant.admins.userIdFilters | join "," | quote }}
+# uno.tenantmanager.authorization.display.userIds
+- name: UNO_TENANTMANAGER_AUTHORIZATION_DISPLAY_USERIDS
+  value: {{ .Values.config.multitenant.viewers.userIds | join "," | quote }}
+# uno.tenantmanager.authorization.display.groupIds
+- name: UNO_TENANTMANAGER_AUTHORIZATION_DISPLAY_GROUPIDS
+  value: {{ .Values.config.multitenant.viewers.groupIds | join "," | quote }}
+# uno.tenantmanager.authorization.display.userIdFilters
+- name: UNO_TENANTMANAGER_AUTHORIZATION_DISPLAY_USERIDFILTERS
+  value: {{ .Values.config.multitenant.viewers.userIdFilters | join "," | quote }}
 # uno.tenantmanager.domain
 - name: UNO_TENANTMANAGER_DOMAIN
   value: {{ .Values.ingress.baseDomainName | quote }}
@@ -323,7 +368,19 @@ release: {{ .Release.Name | quote }}
 #uno.tenantmanager.mail.tenant.created.subject
 - name: UNO_TENANTMANAGER_MAIL_TENANT_CREATED_SUBJECT
   value: {{ .Values.config.multitenant.eMailTenantReadySubject | quote }}
+#uno.tenantmanager.mail.send.trial
+- name: UNO_TENANTMANAGER_MAIL_SEND_TRIAL
+  value: {{ .Values.config.multitenant.eMailSendForTrial | quote }}
+#uno.tenantmanager.mail.send.subscribed
+- name: UNO_TENANTMANAGER_MAIL_SEND_SUBSCRIBED
+  value: {{ .Values.config.multitenant.eMailSendForSubscribed | quote }}
 {{- if .Values.config.multitenant.marketplace.HCLSoftware.enabled }}
+#uno.tenantmanager.mail.other-recipients.enabled
+- name: UNO_TENANTMANAGER_MAIL_OTHER_RECIPIENTS_ENABLED
+  value: {{ .Values.config.multitenant.eMailOtherRecipientsEnabled | quote }}
+#uno.tenantmanager.mail.other-recipients
+- name: UNO_TENANTMANAGER_MAIL_OTHER_RECIPIENTS
+  value: {{ .Values.config.multitenant.eMailOtherRecipients | quote }}
 # HCL Software Marketplace integration
 
 # uno.tenantmanager.marketplace.enabled
@@ -335,12 +392,20 @@ release: {{ .Release.Name | quote }}
 # uno.tenantmanager.marketplace.planIds
 - name: UNO_TENANTMANAGER_MARKETPLACE_PLANIDS
   value: {{ .Values.config.multitenant.marketplace.HCLSoftware.planIds | join "," | quote }}
+{{- if .Values.config.multitenant.marketplace.HCLSoftware.kafka.startDate }}
+# uno.tenantmanager.marketplace.message.startDate
+- name: UNO_TENANTMANAGER_MARKETPLACE_MESSAGE_STARTDATE
+  value: {{ .Values.config.multitenant.marketplace.HCLSoftware.kafka.startDate | quote }}
+{{- end }}
 # uno.tenantmanager.marketplace.kafka.bootstrap.servers
 - name: UNO_TENANTMANAGER_MARKETPLACE_KAFKA_BOOTSTRAP_SERVERS
   value: {{ .Values.config.multitenant.marketplace.HCLSoftware.kafka.url | quote }}
 # uno.tenantmanager.marketplace.kafka.topic
 - name: UNO_TENANTMANAGER_MARKETPLACE_KAFKA_TOPIC
   value: {{ .Values.config.multitenant.marketplace.HCLSoftware.kafka.topic | quote }}
+# uno.tenantmanager.marketplace.kafka.provisioningActivityTopic
+- name: UNO_TENANTMANAGER_MARKETPLACE_KAFKA_PROVISIONINGACTIVITYTOPIC
+  value: {{ .Values.config.multitenant.marketplace.HCLSoftware.kafka.provisioningActivityTopic | quote }}
 # uno.tenantmanager.marketplace.kafka.user
 - name: UNO_TENANTMANAGER_MARKETPLACE_KAFKA_USER
   value: {{ .Values.config.multitenant.marketplace.HCLSoftware.kafka.username | quote }}
@@ -363,6 +428,11 @@ release: {{ .Release.Name | quote }}
 # mp.messaging.incoming.marketplace-incoming.value-deserialization-failure-handler=marketplace-failure-handler
 - name: MP_MESSAGING_INCOMING_MARKETPLACE_INCOMING_VALUE_DESERIALIZATION_FAILURE_HANDLER
   value: "marketplace-failure-handler"
+{{- if .Values.config.multitenant.marketplace.HCLSoftware.kafka.groupId }}
+# mp.messaging.incoming.marketplace-incoming.group.id
+- name: MP_MESSAGING_INCOMING_MARKETPLACE_INCOMING_GROUP_ID
+  value: {{ .Values.config.multitenant.marketplace.HCLSoftware.kafka.groupId | quote }}
+{{- end }}
 # uno.tenantmanager.marketplace.kafka.schema.registry.password
 - name: UNO_TENANTMANAGER_MARKETPLACE_KAFKA_SCHEMA_REGISTRY_PASSWORD
   valueFrom:
@@ -389,6 +459,25 @@ release: {{ .Release.Name | quote }}
 # uno.license.server.mhs.oauth2.client.secret
 - name: UNO_LICENSE_SERVER_MHS_OAUTH2_CLIENT_SECRET
   value: {{ .Values.config.multitenant.marketplace.HCLSoftware.MHSOAuth2.clientSecret | quote }}
+# uno.tenantmanager.unica.journey.tokenUrl
+- name: UNO_TENANTMANAGER_UNICA_JOURNEY_TOKENURL
+  value: {{ .Values.config.multitenant.marketplace.HCLSoftware.Unica.journey.tokenUrl | quote }}
+# uno.tenantmanager.unica.journey.dataUrl
+- name: UNO_TENANTMANAGER_UNICA_JOURNEY_DATAURL
+  value: {{ .Values.config.multitenant.marketplace.HCLSoftware.Unica.journey.dataUrl | quote }}
+# uno.tenantmanager.unica.journey.clientId
+- name: UNO_TENANTMANAGER_UNICA_JOURNEY_CLIENTID
+  value : {{ .Values.config.multitenant.marketplace.HCLSoftware.Unica.journey.clientId | quote }}
+# uno.tenantmanager.unica.journey.clientSecret
+- name: UNO_TENANTMANAGER_UNICA_JOURNEY_CLIENTSECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Release.Name }}-uno-secret
+      key: UNICA_JOURNEY_CLIENT_SECRET
+      optional: true
+# uno.tenantmanager.unica.journey.entrySourceCode
+- name: UNO_TENANTMANAGER_UNICA_JOURNEY_ENTRYSOURCECODE
+  value: {{ .Values.config.multitenant.marketplace.HCLSoftware.Unica.journey.entrySourceCode | quote }}
 # End of HCL Software Marketplace integration
 
 {{- end -}}
@@ -428,7 +517,19 @@ release: {{ .Release.Name | quote }}
 - name: UNO_AUTHENTICATION_CONSOLE_PORT
   value: {{ .Values.config.console.port | default $consolePublicPort | quote}}
 {{- end }}
+- name: UNO_AICHAT_SERVER_CONNECTION_TIMEOUT
+  value: {{ .Values.config.aiChat.timeout | default 300 | quote }}
 {{- end -}}
+
+{{- define "uno.multitenant.lastLoginForMailNotificationsDuration" -}}
+{{- if .Values.config.multitenant.lastLoginForMailNotificationsDuration }}
+- name: UNO_ACTIVE_USERS_LAST_LOGIN_DURATION
+  value: {{ .Values.config.multitenant.lastLoginForMailNotificationsDuration | quote }}
+{{- else }}
+- name: UNO_ACTIVE_USERS_LAST_LOGIN_DURATION
+  value: "P30D"
+{{- end }}
+{{- end }}
 
 {{- define "uno.apikey.cleanup.variable" -}}
 {{- if .Values.config.apiKey.cleanupFrequencyForPending }}
@@ -581,7 +682,7 @@ release: {{ .Release.Name | quote }}
     {{- $apiHostname = printf "%s.%s" .Values.deployment.gateway.gatewayApiPrefix (trimPrefix "." (include "common.baseDomainName" .)) }}
   {{- end }}
 {{- end }}
-{{- if .Values.config.multitenant.enabled }}
+{{- if eq "true" (include "uno.enableMultitenant" .) }}
   {{- $apiHostname = printf "{0}.%s" $apiHostname }}
 {{- end }}
 - name: UNO_AUTHENTICATION_API_HOSTNAME
@@ -607,11 +708,11 @@ release: {{ .Release.Name | quote }}
 {{- end }}
 - name: UNO_PLUGINS_MANAGEPLUGINS_ENABLED
   value: {{ .Values.config.plugins.managePluginsEnabled | quote }}
-{{- if .Values.config.engine.allowed_referer }}
+{{- if (.Values.config.engine).allowed_referer }}
 - name: UNO_ALLOWED_REFERER
   value: {{ .Values.config.engine.allowed_referer | quote }}
 {{- end }}
-{{- if .Values.config.multitenant.enabled }}
+{{- if eq "true" (include "uno.enableMultitenant" .) }}
 - name: QUARKUS_PROFILE
   value: multitenant
 - name: UNO_MULTI_TENANT_BASE_DOMAIN_NAME
@@ -621,6 +722,14 @@ release: {{ .Release.Name | quote }}
 #uno.multi-tenant.tenant.metrics.enabled
 - name: UNO_MULTI_TENANT_TENANT_METRICS_ENABLED
   value: {{ .Values.config.multitenant.tenantMetricsEnabled | quote }}
+#uno.multi-tenant.enabled
+- name: UNO_MULTI_TENANT_ENABLED
+  value: "true"
+{{- if .Values.config.multitenant.marketplace.HCLSoftware.enabled }}
+# uno.tenantmanager.marketplace.enabled
+- name: UNO_TENANTMANAGER_MARKETPLACE_ENABLED
+  value: "true"
+{{- end }}
 {{- end }}
 - name: UNO_LICENSE_SERVER_MHS_URL
   value: {{ $mhsUrl | quote }}
@@ -662,9 +771,24 @@ release: {{ .Release.Name | quote }}
 - name: UNO_HUMAN_TASK_CANCEL_TIMEOUT_SECONDS
   value: {{ .Values.config.orchestrator.humanTaskCancelWindowSeconds | quote }}
 {{- end }}
+{{- if .Values.config.orchestrator.countConsumedJobsFrequency }}
+# uno.license.count-consumed-jobs.frequency
+- name: UNO_LICENSE_COUNT_CONSUMED_JOBS_FREQUENCY
+  value: {{ .Values.config.orchestrator.countConsumedJobsFrequency | quote }}
+{{- end }}
 {{- if .Values.config.orchestrator.jobRunHistoryRetentionDuration }}
 - name: UNO_JOB_RUN_HISTORY_RETENTION_DURATION
   value: {{ .Values.config.orchestrator.jobRunHistoryRetentionDuration | quote }}
+{{- end }}
+{{- if .Values.config.executor.taskRetentionDays }}
+ #uno.cloudtask.cleanup.max-age
+- name: UNO_CLOUDTASK_CLEANUP_MAX_AGE
+  value: {{ .Values.config.executor.taskRetentionDays | quote}}
+{{- end }}
+{{- if .Values.config.executor.cloudExecutorBlockedPlugin }}
+ #uno.cloud.task.launcher.not.supported.job.types
+- name: UNO_CLOUD_TASK_LAUNCHER_NOT_SUPPORTED_JOB_TYPES
+  value: {{ .Values.config.executor.cloudExecutorBlockedPlugin | quote }}
 {{- end }}
 #uno.endpoint.monitor.timer.frequency
 - name: UNO_ENDPOINT_MONITOR_TIMER_FREQUENCY
@@ -712,26 +836,35 @@ release: {{ .Release.Name | quote }}
 {{- else if .Values.ingress.enabled }}
 - name: UNO_CONSOLE_ENDPOINT
   value: {{ printf "https://%s.%s" .Values.deployment.console.ingressPrefix (trimPrefix "." .Values.ingress.baseDomainName) | quote }}
-{{- else }}
+{{- else if .Values.gatewayApi.enabled }}
 - name: UNO_CONSOLE_ENDPOINT
   value: {{ printf "https://%s.%s" .Values.deployment.console.gatewayApiPrefix (trimPrefix "." .Values.gatewayApi.baseDomainName) | quote }}
-{{- end }}
-{{- if .Values.ingress.enabled }}
-  {{- if .Values.config.multitenant.enabled }}
-- name: UNO_AGENTMANAGER_URL
-  value: {{ printf "https://%s.%s.%s"  "{0}" .Values.deployment.agentmanager.ingressPrefix (trimPrefix "." .Values.ingress.baseDomainName) | quote }}
+{{- else }}
+  {{- if eq .Values.global.deploymentType  "aio" }}
+- name: UNO_CONSOLE_ENDPOINT
+  value: {{ printf "https://%s-console-aio:8443" $fullName | quote }}
   {{- else }}
-- name: UNO_AGENTMANAGER_URL
-  value: {{ printf "https://%s.%s" .Values.deployment.agentmanager.ingressPrefix (trimPrefix "." .Values.ingress.baseDomainName) | quote }}
+- name: UNO_CONSOLE_ENDPOINT
+  value: {{ printf "https://%s-console:8443" $fullName | quote }}
   {{- end }}
-{{- else if .Values.gatewayApi.enabled }}
-  {{- if .Values.config.multitenant.enabled }}
-- name: UNO_AGENTMANAGER_URL
-  value: {{ printf "https://%s.%s.%s"  "{0}" .Values.deployment.agentmanager.gatewayApiPrefix (trimPrefix "." .Values.gatewayApi.baseDomainName) | quote }}
-  {{- else }}
-- name: UNO_AGENTMANAGER_URL
-  value: {{ printf "https://%s.%s" .Values.deployment.agentmanager.gatewayApiPrefix (trimPrefix "." .Values.gatewayApi.baseDomainName) | quote }}
 {{- end }}
+{{- if .Values.config.endpoint.agentmanager }}
+- name: UNO_AGENTMANAGER_ENDPOINT
+  value: {{ .Values.config.endpoint.agentmanager | quote }}
+{{- else if .Values.ingress.enabled }}
+- name: UNO_AGENTMANAGER_ENDPOINT
+  value: {{ printf "https://%s.%s" .Values.deployment.agentmanager.ingressPrefix (trimPrefix "." .Values.ingress.baseDomainName) | quote }}
+{{- else if .Values.gatewayApi.enabled }}
+- name: UNO_AGENTMANAGER_ENDPOINT
+  value: {{ printf "https://%s.%s" .Values.deployment.agentmanager.gatewayApiPrefix (trimPrefix "." .Values.gatewayApi.baseDomainName) | quote }}
+{{- else }}
+  {{- if eq .Values.global.deploymentType  "aio" }}
+- name: UNO_AGENTMANAGER_ENDPOINT
+  value: {{ printf "https://%s-console-aio:8443" $fullName | quote }}
+  {{- else }}
+- name: UNO_AGENTMANAGER_ENDPOINT
+  value: {{ printf "https://%s-agentmanager:8443" $fullName | quote }}
+  {{- end }}
 {{- end }}
 {{- if .Values.config.endpoint.gateway }}
 - name: UNO_GATEWAY_ENDPOINT
@@ -739,9 +872,17 @@ release: {{ .Release.Name | quote }}
 {{- else if .Values.ingress.enabled }}
 - name: UNO_GATEWAY_ENDPOINT
   value: {{ printf "https://%s.%s" .Values.deployment.gateway.ingressPrefix (trimPrefix "." .Values.ingress.baseDomainName) | quote }}
-{{- else }}
+{{- else if .Values.gatewayApi.enabled }}
 - name: UNO_GATEWAY_ENDPOINT
   value: {{ printf "https://%s.%s" .Values.deployment.gateway.gatewayApiPrefix (trimPrefix "." .Values.gatewayApi.baseDomainName) | quote }}
+{{- else }}
+  {{- if eq .Values.global.deploymentType  "aio" }}
+- name: UNO_GATEWAY_ENDPOINT
+  value: {{ printf "https://%s-console-aio:8443" $fullName | quote }}
+  {{- else }}
+- name: UNO_GATEWAY_ENDPOINT
+  value: {{ printf "https://%s-gateway:8443" $fullName | quote }}
+  {{- end }}
 {{- end }}
 {{- if eq .Values.global.deploymentType  "aio" }}
 - name: UNO_GATEWAY_PRIVATE_ENDPOINT
@@ -803,11 +944,19 @@ release: {{ .Release.Name | quote }}
   value: {{ .Values.database.tls | quote}}
 - name: QUARKUS_MONGODB_TLS_INSECURE
   value: {{ .Values.database.tlsInsecure | quote}}
+{{- if .Values.database.authenticationDatabase }}
+- name: QUARKUS_MONGODB_CREDENTIALS_AUTH_SOURCE
+  value: {{ .Values.database.authenticationDatabase | quote}}
+{{- end }}
 - name: UNO_DATABASE_TYPE
   value: {{ .Values.database.type | quote }}
 - name: KAFKA_BOOTSTRAP_SERVERS
   # if additional bootstrap servers are required, add a comma separated list
   value: {{ (tpl ( .Values.kafka.url) .) | quote}}
+{{- if .Values.kafka.configureTopicOnStart }}
+- name: UNO_CREATE_TOPICS_ENABLE
+  value: {{ .Values.kafka.configureTopicOnStart | quote}}
+{{- end }}
 {{- if .Values.kafka.kerberosServiceName }}
 - name: KAFKA_SASL_KERBEROS_SERVICE_NAME
   value: {{ .Values.kafka.kerberosServiceName | quote}}
@@ -883,8 +1032,6 @@ release: {{ .Release.Name | quote }}
 {{- end }}
 - name: UNO_TRACING_ENABLE_ALL
   value: {{ .Values.config.tracing.traceAll | quote }}
-- name:  UNO_CREATE_TOPICS_ENABLE
-  value: "true"
 - name: UNO_CREATE_TOPICS_PARTITION
   value: {{ mul .Values.deployment.global.maxTargetReplicas 2 | quote }}
 - name: UNO_CREATE_TOPICS_REPLICA
@@ -905,6 +1052,8 @@ release: {{ .Release.Name | quote }}
 - name: UNO_IAA_CLIENT_URL
   value: "https://localhost:8443"
 - name: UNO_CALENDAR_CLIENT_URL
+  value: "https://localhost:8443"
+- name: UNO_METRICS_CLIENT_URL
   value: "https://localhost:8443"
 - name: UNO_ORCHESTRATOR_CLIENT_URL
   value: "https://localhost:8443"
@@ -928,6 +1077,8 @@ release: {{ .Release.Name | quote }}
 - name: UNO_IAA_CLIENT_URL
   value: https://{{ $fullName }}-iaa:8443
 - name: UNO_CALENDAR_CLIENT_URL
+  value: https://{{ $fullName }}-toolbox:8443
+- name: UNO_METRICS_CLIENT_URL
   value: https://{{ $fullName }}-toolbox:8443
 - name: UNO_ORCHESTRATOR_CLIENT_URL
   value: https://{{ $fullName }}-orchestrator:8443
@@ -958,6 +1109,11 @@ release: {{ .Release.Name | quote }}
         name: {{ .Release.Name }}-uno-secret
         key: ENCRYPTION_KEY
         optional: false
+- name: PRODUCT_DEPLOYMENT_ID
+  valueFrom:
+    configMapKeyRef:
+      name: "{{ $fullName }}-uno-deployment-config"
+      key: PRODUCT_DEPLOYMENT_ID
 {{- end -}}
 
 {{- define "common.custom.env.variable" -}}
@@ -999,6 +1155,8 @@ volumes:
     emptyDir: {}
   - name: plugindir
     emptyDir: {}
+  - name: stdlist-volume
+    emptyDir: {}
   - name: cert-volume
     secret:
       defaultMode: 0664
@@ -1013,7 +1171,15 @@ volumes:
       defaultMode: 0664
       secretName: {{ $dwcsecretname  | quote }}
 {{- end }}
-{{- if and .Values.global.enableAgenticAIBuilder .Values.agenticAIBuilder.certificates.certSecretName }}
+{{- if .Values.global.enableAgenticAIBuilder }}
+  - name: {{ $fullName }}-agenticbuilder-jwt-cert-volume
+    secret:
+      defaultMode: 0644
+      secretName: {{ $fullName }}-agentic-ab-jwt
+      items:
+      - key: tls.crt
+        path: tls.crt
+{{- if .Values.agenticAIBuilder.certificates.certSecretName }}
   - name: {{ tpl .Values.agenticAIBuilder.certificates.certSecretName . }}-cert-volume
     secret:
       defaultMode: 0664
@@ -1021,6 +1187,7 @@ volumes:
       items:
       - key: tls.crt
         path: {{ tpl .Values.agenticAIBuilder.certificates.certSecretName . }}.crt
+{{- end }}
 {{- end }}
   - name: ext-agent-cert-volume
     secret:
@@ -1055,6 +1222,8 @@ volumeMounts:
     mountPath: /security/certs
   - name: jwt-volume
     mountPath: /security/jwt
+  - name: stdlist-volume
+    mountPath: /opt/app/stdlist
   - name: ext-agent-cert-volume
     mountPath: /security/ext_agt_depot
 {{- if $dwcsecretname }}
@@ -1069,9 +1238,13 @@ volumeMounts:
   - name: {{ tpl . $}}-cert-ext-volume
     mountPath: /security/ext_agt_depot/additionalCAs/{{ tpl . $}}
 {{- end }}
-{{- if and .Values.global.enableAgenticAIBuilder .Values.agenticAIBuilder.certificates.certSecretName }}
+{{- if .Values.global.enableAgenticAIBuilder }}
+  - name: {{ $fullName }}-agenticbuilder-jwt-cert-volume
+    mountPath: /security/certs/agenticbuilder/
+{{- if .Values.agenticAIBuilder.certificates.certSecretName }}
   - name: {{ tpl .Values.agenticAIBuilder.certificates.certSecretName . }}-cert-volume
     mountPath: /security/certs/additionalCAs/{{ tpl .Values.agenticAIBuilder.certificates.certSecretName . }}
+{{- end }}
 {{- end }}
 {{- end -}}
 
@@ -1118,11 +1291,11 @@ gcr.io/blackjack-209019/services/uno
 
 {{- define "uno.pluginImageRepository" -}}
 {{- if eq .Values.global.hclImageRegistry "hclcr.io/sofy" -}}
-hclcr.io/wa
+hclcr.io/uno
 {{- else if eq .Values.global.hclImageRegistry "hclcr.io" -}}
-hclcr.io/wa
+hclcr.io/uno
 {{- else if eq .Values.global.hclImageRegistry "gcr.io/blackjack-209019" -}}
-gcr.io/blackjack-209019/services
+gcr.io/blackjack-209019/services/uno
 {{- else if  .Values.global.hclImageRegistry  -}}
 {{ print .Values.global.hclImageRegistry }}
 {{- else -}}
@@ -1181,30 +1354,90 @@ gcr.io/blackjack-209019/services
 {{- end -}}
 
 {{- define "uno.genai.env.configuration" -}}
-{{- if .Values.config.defaultVertexAiModel }}
-- name: UNO_GENAI_AGENT_PLATFORM_VERTEX_AI_MODEL
+{{- /* Default model configuration (provider-agnostic) - new values take precedence */ -}}
+{{- if .Values.config.genai.defaultModel }}
+- name: UNO_GENAI_DEFAULT_MODEL
+  value: {{ .Values.config.genai.defaultModel | quote }}
+{{- else if and .Values.config.genai .Values.config.genai.defaultVertexAiModel }}
+- name: UNO_GENAI_DEFAULT_MODEL
   value: {{ .Values.config.genai.defaultVertexAiModel | quote }}
 {{- end }}
-{{- if .Values.config.genai.internalAgentsModel }}
-#uno.genai.agent.internal.model
-- name: UNO_GENAI_AGENT_INTERNAL_MODEL
-  value: {{ .Values.config.genai.internalAgentsModel | quote }}
+{{- /* Active models per provider for AI Agent selection */ -}}
+{{- range $provider, $providerConfig := .Values.config.genai.providers }}
+{{- if $providerConfig.activeModels }}
+- name: UNO_GENAI_PLATFORM_{{ upper $provider | replace "." "_" }}_MODELS_ACTIVE
+  value: {{ join "," $providerConfig.activeModels | quote }}
 {{- end }}
-{{- if .Values.config.genai.agentModels.vertexAiModels }}
-- name: UNO_AIAGENT_MODELS_VERTEXAI
+{{- end }}
+{{- /* Backward compatibility for old agentModels structure */ -}}
+{{- if and .Values.config.genai .Values.config.genai.agentModels .Values.config.genai.agentModels.vertexAiModels (not .Values.config.genai.providers.vertexai.activeModels) (not .Values.config.genai.providers.vertexai.models) }}
+- name: UNO_GENAI_PLATFORM_VERTEXAI_MODELS_ACTIVE
   value: {{ .Values.config.genai.agentModels.vertexAiModels | quote }}
 {{- end }}
-{{- if .Values.config.genai.agentModels.openAiModels }}
-- name: UNO_AIAGENT_MODELS_OPENAI
+{{- if and .Values.config.genai .Values.config.genai.agentModels .Values.config.genai.agentModels.openAiModels (not .Values.config.genai.providers.openai.activeModels) (not .Values.config.genai.providers.openai.models) }}
+- name: UNO_GENAI_PLATFORM_OPENAI_MODELS_ACTIVE
   value: {{ .Values.config.genai.agentModels.openAiModels | quote }}
 {{- end }}
-{{- if .Values.config.genai.agentModels.bedrockModels }}
-- name: UNO_AIAGENT_MODELS_BEDROCK
+{{- if and .Values.config.genai .Values.config.genai.agentModels .Values.config.genai.agentModels.bedrockModels (not .Values.config.genai.providers.bedrock.activeModels) (not .Values.config.genai.providers.bedrock.models) }}
+- name: UNO_GENAI_PLATFORM_BEDROCK_MODELS_ACTIVE
   value: {{ .Values.config.genai.agentModels.bedrockModels | quote }}
 {{- end }}
-{{- if .Values.config.genai.agentModels.ollamaModels }}
-- name: UNO_AIAGENT_MODELS_OLLAMA
+{{- if and .Values.config.genai .Values.config.genai.agentModels .Values.config.genai.agentModels.ollamaModels (not .Values.config.genai.providers.ollama.activeModels) (not .Values.config.genai.providers.ollama.models) }}
+- name: UNO_GENAI_PLATFORM_OLLAMA_MODELS_ACTIVE
   value: {{ .Values.config.genai.agentModels.ollamaModels | quote }}
+{{- end }}
+{{- /* Validation configuration */ -}}
+{{- if hasKey .Values.config.genai.validation "failOnMissingCosts" }}
+- name: UNO_GENAI_VALIDATION_FAIL_ON_MISSING_COSTS
+  value: {{ .Values.config.genai.validation.failOnMissingCosts | quote }}
+{{- end }}
+{{- /* Service configuration with estimated tokens */ -}}
+{{- if .Values.config.genai.serviceConfig }}
+{{- /* Backward compatibility: support old internalAgentsModel */ -}}
+{{- $defaultBackwardModel := .Values.config.genai.internalAgentsModel | default .Values.config.genai.defaultVertexAiModel }}
+{{- range $service, $config := .Values.config.genai.serviceConfig }}
+{{- if ne $service "defaultModel" }}
+{{- if $config.model }}
+- name: UNO_GENAI_SERVICE_CONFIG_{{ upper $service }}_MODEL
+  value: {{ $config.model | quote }}
+{{- else if $defaultBackwardModel }}
+- name: UNO_GENAI_SERVICE_CONFIG_{{ upper $service }}_MODEL
+  value: {{ $defaultBackwardModel | quote }}
+{{- end }}
+{{- if $config.estimatedInputTokens }}
+- name: UNO_GENAI_SERVICE_CONFIG_{{ upper $service }}_ESTIMATED_INPUT_TOKENS
+  value: {{ $config.estimatedInputTokens | quote }}
+{{- end }}
+{{- if $config.estimatedOutputTokens }}
+- name: UNO_GENAI_SERVICE_CONFIG_{{ upper $service }}_ESTIMATED_OUTPUT_TOKENS
+  value: {{ $config.estimatedOutputTokens | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /* Model list and cost configuration */ -}}
+{{- range $provider, $providerConfig := .Values.config.genai.providers }}
+{{- if $providerConfig.models }}
+{{- $modelNames := list }}
+{{- range $model := $providerConfig.models }}
+{{- $modelNames = append $modelNames $model.name }}
+{{- if $model.inputCost }}
+- name: UNO_GENAI_PLATFORM_{{ upper $provider | replace "." "_" }}_COST_{{ $model.name | upper | replace "." "_" | replace "-" "_" }}_INPUT
+  value: {{ printf "%.10g" $model.inputCost | quote }}
+{{- end }}
+{{- if $model.outputCost }}
+- name: UNO_GENAI_PLATFORM_{{ upper $provider | replace "." "_" }}_COST_{{ $model.name | upper | replace "." "_" | replace "-" "_" }}_OUTPUT
+  value: {{ printf "%.10g" $model.outputCost | quote }}
+{{- end }}
+{{- if $model.divider }}
+- name: UNO_GENAI_PLATFORM_{{ upper $provider | replace "." "_" }}_COST_{{ $model.name | upper | replace "." "_" | replace "-" "_" }}_DIVIDER
+  value: {{ printf "%.0f" $model.divider | quote }}
+{{- end }}
+{{ end }}
+{{- /* Generate comma-separated list of model names for this provider */ -}}
+- name: UNO_GENAI_PLATFORM_{{ upper $provider | replace "." "_" }}_MODELS
+  value: {{ join "," $modelNames | quote }}
+{{- end }}
 {{- end }}
 {{- if .Values.config.genai.maxUserPrompts }}
 - name: UNO_GENAI_AGENT_MAX_USER_PROMPT_FOR_CONTEXT
@@ -1222,12 +1455,23 @@ gcr.io/blackjack-209019/services
 - name: GOOGLE_APPLICATION_CREDENTIALS
   value: /security/credentials/gcp-vertexai-svc.json
 {{- end }}
+{{- /* Backward compatibility: new values take precedence */ -}}
+{{- if .Values.global.cloudCredentials.gcp.location }}
+- name: UNO_GENAI_PLATFORM_VERTEXAI_LOCATION
+  value: {{ .Values.global.cloudCredentials.gcp.location | quote }}
+{{- else if and .Values.config.genai .Values.config.genai.vertexAiModelsLocation }}
+- name: UNO_GENAI_PLATFORM_VERTEXAI_LOCATION
+  value: {{ .Values.config.genai.vertexAiModelsLocation | quote }}
+{{- else }}
+- name: UNO_GENAI_PLATFORM_VERTEXAI_LOCATION
+  value: "global"
+{{- end }}
 {{- if .Values.config.genai.timeout }}
 - name: UNO_GENAI_ENDPOINT_TIMEOUT
   value: {{ .Values.config.genai.timeout | quote }}
 {{- end }}
 {{- if .Values.global.cloudCredentials.gcp.projectId }}
-- name: UNO_GENAI_PLATFORM_VERTEX_AI_PROJECT_ID
+- name: UNO_GENAI_PLATFORM_VERTEXAI_PROJECT_ID
   value: {{ .Values.global.cloudCredentials.gcp.projectId | quote }}
 {{- end }}
 {{- if .Values.global.cloudCredentials.aws.accessKeyId }}
