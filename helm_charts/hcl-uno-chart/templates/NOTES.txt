@@ -21,21 +21,29 @@ unvalidated TLS.
 
 {{- if .Values.uno.ingress.enabled }}
 External URLs (via Ingress):
+{{- if .Values.uno.config.multitenant.enabled }}
+  Console:        https://<tenantname>.{{ .Values.uno.deployment.console.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
+  Gateway:        https://<tenantname>.{{ .Values.uno.deployment.gateway.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
+  Agent Manager:  https://<tenantname>.{{ .Values.uno.deployment.agentmanager.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
+  Tenant Manager: https://{{ .Values.uno.deployment.tenantmanager.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
+{{- else }}
   Console:        https://{{ .Values.uno.deployment.console.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
   Gateway:        https://{{ .Values.uno.deployment.gateway.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
   Agent Manager:  https://{{ .Values.uno.deployment.agentmanager.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
-{{- if .Values.uno.config.multitenant.enabled }}
-  Tenant Manager: https://{{ .Values.uno.deployment.tenantmanager.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
 {{- end }}
 {{- end }}
 
 {{- if .Values.uno.gatewayApi.enabled }}
 External URLs (via Gateway API):
+{{- if .Values.uno.config.multitenant.enabled }}
+  Console:        https://<tenantname>.{{ .Values.uno.deployment.console.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
+  Gateway:        https://<tenantname>.{{ .Values.uno.deployment.gateway.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
+  Agent Manager:  https://<tenantname>.{{ .Values.uno.deployment.agentmanager.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
+  Tenant Manager: https://{{ .Values.uno.deployment.tenantmanager.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
+{{- else }}
   Console:        https://{{ .Values.uno.deployment.console.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
   Gateway:        https://{{ .Values.uno.deployment.gateway.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
   Agent Manager:  https://{{ .Values.uno.deployment.agentmanager.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
-{{- if .Values.uno.config.multitenant.enabled }}
-  Tenant Manager: https://{{ .Values.uno.deployment.tenantmanager.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
 {{- end }}
 {{- end }}
 

@@ -18,6 +18,8 @@ global:
   enableUnoAIPilot: false
   # enable Agentic AI Builder enables and disables the Agentic AI Builder deployment. Supported values are true and false.
   enableAgenticAIBuilder: false
+  # Enables multitenant support within the UnO instance and the Agentic AI Builder. Supported values are true and false.
+  enableMultitenant: false
   # debug enables and disables the debugging mode. Supported values are true and false.
   debug: false
   # language specifies the language to be used.
@@ -27,13 +29,15 @@ global:
   # configPlugins is the ConfigMap containing list of plugin to be installed.
   configPlugins:
   # pluginImageRepository is the name of the repository that contains the image with tags for Automation Hub integrations.
-  pluginImageRepository: hclcr.io/uno-ea
+  pluginImageRepository: hclcr.io/uno
   # pluginImageName is the name of the image with tags for Automation Hub integrations. 
-  pluginImageName: hcl-uno-automation-plugins:2.1.4.0-beta2
+  pluginImageName: hcl-uno-automation-plugins:2.1.7.0-beta1
   # extraImages is the list of images with tags containing OCLI and agent for download from engine.
   extraImages:
-    - registry: hclcr.io/uno-ea
-      name: hcl-uno-external-pod:2.1.4.0-beta2
+    - registry: hclcr.io/uno
+      name: hcl-uno-external-pod:2.1.7.0-beta1
+    - registry: hclcr.io/wa
+      name: hcl-workload-automation-packages:10.2.8.00.20260727
   # customPluginImageName is the custom name of the image with tags for Automation Hub integrations.
   customPluginImageName:
   # serviceAccountName is the name of a custom service account to be used for deployments, for example to deploy HCL Workload Automation.
@@ -62,6 +66,8 @@ global:
   # This is only used in case internal genai service
   cloudCredentials:
     gcp:
+      # Location for Vertex AI models (e.g., global, us, eu, us-central1, europe-west1, ...)
+      location:
       # gcp is the GCP service account key in JSON format. Replace the value with your GCP service account file content encoded in base64.
       serviceFile:
       # gcpProjectId is the GCP project ID. Replace the value with your GCP project ID.
@@ -87,6 +93,18 @@ global:
       genaiUri: /chat/completions
       # apiKey is the OpenAI API key to access the GenAI service. Replace the value with your OpenAI API key.
       apiKey:
+    ollama:
+      # baseUrl is the base URL of the Ollama service. Replace the value with your Ollama server URL.
+      baseUrl: http://localhost:11434
+      # authType is the authentication type for Ollama. Supported values are: none, basic, bearer.
+      authType: none
+      # basicAuthUsername is the username for basic authentication (used when authType=basic).
+      basicAuthUsername:
+      # basicAuthPassword is the password for basic authentication (used when authType=basic).
+      basicAuthPassword:
+      # bearerToken is the bearer token for authentication (used when authType=bearer).
+      bearerToken:
+
 uno:
   database:
     # url is the URL of the database. Mandatory parameter.
@@ -99,6 +117,8 @@ uno:
     username: 
     # password is the password of the database user. Mandatory parameter.
     password:
+    # authenticationDatabase is the database to authenticate against. It is used only for MongoDB and the default value is "admin".
+    authenticationDatabase:
     # tls specifies whether TLS is enabled. Supported values are true and false.
     tls: false
     # tlsInsecure specifies whether certificate validation must be skipped. Supported values are true and false.
@@ -108,6 +128,8 @@ uno:
     # Specifies the maximum number of connections in the pool.
     databaseMaxPoolSize: 20
   kafka:
+    # if true kafka topics will be created /updated on start of UnO
+    configureTopicOnStart: true
     # url is the URL of the event streaming platform. Mandatory parameter.
     url: hcl-uno-kafka-0.kafka-headless.kafka.svc.cluster.local:9092
     # prefix of topic name
@@ -135,6 +157,9 @@ uno:
     # topicReplicas is the number of replicas for the topic.
     topicReplicas: 1
   config:
+    aiChat:
+      # Specifies the connection timeout for the connection to the AI Chat service. The value is in seconds. The default value is 300 seconds.
+      timeout: 300
     serviceAccount:
       # use the serviceAccount.annotations to add annotations to serviceAccount.
       annotations:
@@ -155,10 +180,10 @@ uno:
         retentionDays: P400D
     # multitenant configuration
     multitenant:
-      # Enables multitenant support. Supported values are true and false.
-      enabled: false
       # commonTenantDatabaseName is the name of the database used for common tenant data.
       commonTenantDatabaseName: multitenant-common
+      # Optional whitelabel string to customize the tenant manager UI header
+      whitelabel:
       # tenantDbPrefix is the prefix used for tenant databases.
       tenantDbPrefix: uno-tenant-
       trial:
@@ -186,12 +211,18 @@ uno:
       # token value per AI Agent call
       # 1 token = 8 ai agent calls
       tokenPerAIAgentCall: 0.125
-      # for internal use only
-      tenantMetricsEnabled: false
+      # Exposes metrics in a multi-tenant environment. When disabled, dashboards cannot display tenant-specific metrics. Supported values are 'true' and 'false'.
+      tenantMetricsEnabled: true
+      # the amount of time from last login on or after which users will not receive notification emails.
+      lastLoginForMailNotificationsDuration: P30D
       # the support email address or http(s) link to include in the tenant notification emails for trials. Optional.
       trialSupportLink: mailto:support@example.com
       # the support email address or http(s) link to include in the tenant notification emails for subscribed tenants. Optional.
       subscribedSupportLink: https://support.example.com
+      # Sends a notification email when a trial tenant is created. Optional.
+      eMailSendForTrial: true
+      # Sends a notification email when a subscribed tenant is created. Optional.
+      eMailSendForSubscribed: true
       # the name to include in the "from" field of the tenant notification emails. Optional.
       eMailSender: UnO SaaS
       # Custom subject for the email sent as notifications when a tenant is created. Optional.
@@ -200,6 +231,8 @@ uno:
       # Custom template in HTML format for the email sent as notifications when a tenant is created. Optional.
       # Use ${TENANT_NAME}, ${TENANT_URL} as placeholders for the tenant name and URL,
       # ${SUPPORT_LINK}, and ${SUPPORT_TXT} as placeholders for the support link and text (based on trial or subscribed support links above)
+      # ${GATEWAY_URL} as placeholder for the gateway URL.
+      # ${AGENTMANAGER_URL} as placeholder for the agent manager URL.
       eMailTenantReadyTemplate: # |
         # <!DOCTYPE html>
         # <html lang="en">
@@ -219,6 +252,10 @@ uno:
         # </body>
         # </html>
       # cert-manager certificate Issuer for tenant manager if not specified it uses the default one
+      # specified whether to also notify other recipients (for example, sales team) when a tenant is created or promoted. Supported values are true and false.
+      eMailOtherRecipientsEnabled: false
+      # comma separated list of email address to be notified when a tenant is created or promoted, used only if eMailOtherRecipientsEnabled is set to true.
+      eMailOtherRecipients: # mail@example.com,mail2@otherrecipient.com
       tenantManagerIngressCertIssuer:
       # Tenant administrators
       admins:
@@ -228,6 +265,18 @@ uno:
         # List of group IDs that are authorized as tenant administrators
         groupIds:
         # - SaaSAdmins
+        # A list of user ID regex patterns to further filter user IDs. 
+        # This is used in conjunction to groupIds.
+        # If at least a filter is specified, Users that has at least one group in groupIds will also need to have a user ID matching at least one of the filters.
+        userIdFilters:
+        # - .*@example.com
+      viewers:
+        # List of user IDs that are authorized as tenant viewers
+        userIds:
+        # - unoSaaSViewer@example.com
+        # List of group IDs that are authorized as tenant viewers
+        groupIds:
+        # - SaaSViewers
         # A list of user ID regex patterns to further filter user IDs. 
         # This is used in conjunction to groupIds.
         # If at least a filter is specified, Users that has at least one group in groupIds will also need to have a user ID matching at least one of the filters.
@@ -245,11 +294,11 @@ uno:
 
     registry:
       # name is the name of your registry.
-      name:  hclcr.io/uno-ea
+      name:  hclcr.io/uno
       # pullPolicy defines when data is pulled from your event streaming platform. Supported values are Always, Never, IfNotPresent.
       pullPolicy: Always
       # tag is the tag of the image. The default value is latest.
-      tag: 2.1.4.0-beta2
+      tag: 2.1.7.0-beta1
     orchestrator:
       # Specifies for how long the Task Run History is retained (in ISO 8601 format, e.g., P400D).
       jobRunHistoryRetentionDuration: P400DT0H
@@ -257,6 +306,9 @@ uno:
       maxNestingLevel: 50
       # the time windows, in seconds, that permits the user to cancel the completion of a human task
       humanTaskCancelWindowSeconds: 20
+    mcpServer:
+      # response timeout in seconds for MCP requests
+      responseTimeoutSeconds: 300
     planning:
       # max number of days to generate not active instance
       notActiveWindowMax: P9DT0H
@@ -272,6 +324,12 @@ uno:
       daysRetentionFailPlan: P30DT0H
       # Frequency to remove the past failed jobs
       frequencyFailJobCleanUp: PT1H
+    executor:
+      # how long tasks executed from the CLOUD executor (and related job logs) are retained in DB. This applies to tasks in final status.
+      # minimum value is 7 days (lower value will be ignored)
+      taskRetentionDays: P15D
+      # cloudExecutorBlockedPlugin is a comma-separated list of plugin types that are blocked from execution on the cloud agent.
+      cloudExecutorBlockedPlugin:
     endpoints:
       monitor:
         frequency:
@@ -315,22 +373,82 @@ uno:
       internal: false
       # Below information are only used if the genai service is internal deployment.
 
-      # Gemini model used for AI Pilot. This is also the default model used for AI Agents. It must be a Gemini model.
-      defaultVertexAiModel: gemini-2.5-flash-lite
       # timeout is the timeout for the GenAI service requests.
       timeout:
-      # These models may take up to 5 minutes to reflect in the other services.
-      agentModels:
-        # Model names that work with GenAI service for AI Agents from vertex-ai
-        vertexAiModels:
-        # Model names that work with GenAI service for AI Agents from OpenAI
-        openAiModels:
-        # Model names that work with GenAI service for AI Agents from bedrock
-        bedrockModels:
-        # Model names that work with GenAI service for AI Agents from ollama
-        ollamaModels:
-      # The model used for internal agents (e.g. to create workflow). It must be one of the models specified in agentModels. If not specified, the defaultVertexAiModel is used.
-      internalAgentsModel:
+
+      # Unified GenAI configuration structure
+      
+      # Validation configuration
+      validation:
+        # failOnMissingCosts controls whether the service fails to start if cost configuration is incomplete.
+        # If cost reports are not relevant, keep this as false.
+        failOnMissingCosts: false
+      
+      # Provider configuration
+      providers:
+        vertexai:
+          # Model cost configuration (optional)
+          # Each model requires inputCost, outputCost, and divider
+          models: []
+          # Example:
+          # - name: gemini-3.1-flash-lite
+          #   inputCost: 0.10
+          #   outputCost: 0.40
+          #   divider: 1000000
+          
+          # Models available for AI Agent selection (optional)
+          # If not specified or empty, defaults to ALL models configured in the 'models' section above
+          # Use this to restrict which models users can select (e.g., hide expensive models)
+          activeModels: []
+          # Example: ["gemini-3.1-flash-lite", "gemini-3.5-flash"]
+        
+        openai:
+          # Model cost configuration (optional)
+          models: []
+          # Models available for AI Agent selection (optional, defaults to all configured models)
+          activeModels: []
+        
+        azure:
+          # Model cost configuration (optional)
+          # Note: Azure OpenAI uses the same models as OpenAI (gpt-*)
+          models: []
+          # Models available for AI Agent selection (optional, defaults to all configured models)
+          activeModels: []
+        
+        bedrock:
+          # Model cost configuration (optional)
+          models: []
+          # Models available for AI Agent selection (optional, defaults to all configured models)
+          activeModels: []
+        
+        ollama:
+          # Model cost configuration (optional)
+          models: []
+          # Models available for AI Agent selection (optional, defaults to all configured models)
+          activeModels: []
+      
+      # Default model for AI Agents (provider-agnostic, can be any configured model)
+      defaultModel:
+      
+      # Service configuration
+      # Defines model and estimated token consumption per service for cost calculation
+      serviceConfig:
+        
+        # Per-service configuration (model only, no estimated tokens for BYOL)
+        ai_agent:
+          model:  # Optional, uses defaultModel if not specified
+        
+        create_workflow:
+          model:
+        
+        rag:
+          model:
+        
+        generate_jsonata:
+          model:
+        
+        generate_dashboard_oql_query:
+          model:
 
     engine:
       # allowed_referer specifies the allowed referer for the engine and console in case of Invalid Referer.
@@ -369,6 +487,8 @@ uno:
       console: #https://console.example.com
       # endpoint where the gateway is exposed.
       gateway: #https://gateway.example.com
+      # endpoint where the agentmanager is exposed. For non multi-tenant deployment only.
+      agentmanager: #https://agentmanager.example.com
     encryption:
       # The password or key to encrypt data, such as passwords, agent database, and kafka messages.
       key:
@@ -417,6 +537,8 @@ uno:
       apikeyPersonalExpirationDuration: P365D
       # apikeyServiceExpirationDuration is the amount of time on or after which the Service API Keys expire. It is calculated starting from API Key creation.
       apikeyServiceExpirationDuration: P365D
+      # apikeyCrossDependenciesExpirationDuration is the amount of time on or after which the Cross Dependencies API Keys expire. It is calculated starting from API Key creation.
+      apikeyCrossDependenciesExpirationDuration: P365D
       # groupsCacheExpirationDuration is the amount of time on or after which users must login again to the authentication provider to use Personal API Keys.
       groupsCacheExpirationDuration: P30D
       # cleanupFrequencyForPending indicates how often the IAA service checks in the database for API Keys whose token has not been created after the cleanupFrequencyForPending timeout has expired.
@@ -574,10 +696,12 @@ uno:
           initialDelaySeconds: 15
           periodSeconds: 5
           failureThreshold: 40
+          timeoutSeconds: 5
         liveness:
           initialDelaySeconds: 60
           periodSeconds: 10
           failureThreshold: 3    # Tight threshold for quick recovery
+          timeoutSeconds: 5
     # The properties listed below apply to single microservices. You can use them to override the global settings defined above for one or more microservices.
     console:
       # ingressPrefix is the prefix of the name of the endpoint of the console microservice.
@@ -640,8 +764,8 @@ uno:
  
   hclaipilot:
     image:
-      repository: hclcr.io/uno-ea
-      tag: 2.1.4.0-beta2
+      repository: hclcr.io/uno
+      tag: 2.1.7.0-beta1
 
     # Channels Configuration
     # The following configuration is used to enable the AIPilot for the channels. For each channel, you need to provide the required configuration.
@@ -693,12 +817,14 @@ uno:
       options: ""
       # Client Required Authentication for Postgres connection ( scram-sha-256, md5, password, gss, sspi, ident, peer, ldap, none)
       requiredAuthentication : "scram-sha-256"
-      #The postgres user password
-      postgresPassword: "Kt3oDP8KWBs3Hg5L11kR9hLhPekw8tIC" 
+      # The password for the postgres user. If no value is defined, the chart automatically generates a password and stores it in a secret named {{ .Release.Name }}-postgres-password.
+      #postgresPassword: "" 
       #postgresPasswordSecretName: '{{ .Release.Name }}-postgres-password'
       #postgresPasswordSecretKey: "password"
       # Only to let the init container create the database "$postgresDB" if it does not exist
       initDatabases: true
+      # The database to be used for the admin session, it should be a database that always exists in Postgres, such as "postgres" or "template1"
+      postgresAdminSessionDB: "postgres"
       postgresAdminUserSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
       postgresAdminUserSecretKey: "user"
       postgresAdminPasswordSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
@@ -804,15 +930,15 @@ uno:
           memory: "1024Mi"  # Memory limit
         requests:
           cpu: "0.2"  # CPU request
-          memory: "256Mi"  # Memory request
+          memory: "950Mi"  # Memory request
 
       hpa:
         minReplicas: 1  # Minimum number of replicas
         maxReplicas: 2  # Maximum number of replicas
 
       container:
-        registry: hclcr.io/uno-ea # Image name
-        tag: 2.1.4.0-beta2  # Image tag
+        registry: hclcr.io/uno # Image name
+        tag: 2.1.7.0-beta1  # Image tag
 
       authorization:
         # Is the URL of the OpenID Connect (OIDC) server.
@@ -833,8 +959,8 @@ uno:
         options: ""
         # Client Required Authentication for Postgres connection ( scram-sha-256, md5, password, gss, sspi, ident, peer, ldap, none)
         requiredAuthentication : "scram-sha-256"
-        #The postgres user password
-        postgresPassword: "Kt3oDP8KWBs3Hg5L11kR9hLhPekw8tIC" 
+        # The password for the postgres user. If no value is defined, the chart automatically generates a password and stores it in a secret named {{ .Release.Name }}-postgres-password.
+        #postgresPassword: "" 
         #postgresPasswordSecretName: '{{ .Release.Name }}-postgres-password'
         #postgresPasswordSecretKey: "password"
         # Only to let the init container create the database "$postgresDB" if it does not exist
@@ -869,6 +995,7 @@ uno:
           hostnameValidation : "true"
     
   agenticAIBuilder:
+
     telemetry:
       # To enable telemetry
       enableTelemetry: "false"
@@ -896,8 +1023,53 @@ uno:
       telemetryExporterHeaders: ""
       # Timeout in milliseconds for the telemetry exporter
       telemetryExporterTimeoutMillis: "10000"
+      # If your trace exporter requires different headers than metrics, provide them here in the format "key1=value1,key2=value2"
+      telemetryExporterTraceHeaders: ""
+      # Optional Langfuse credentials for OTLP trace export. Prefer the SecretName/SecretKey form for production.
+      # Langfuse Public Key (used for trace export)
+      langfusePublicKey: ""
+      # Optional Secret reference for Langfuse Public Key (used if langfusePublicKey is not set)
+      langfusePublicKeySecretName: ""
+      # Optional Secret key for Langfuse Public Key (default: "public-key")
+      langfusePublicKeySecretKey: "public-key"
+      # Langfuse Secret Key (used for trace export)
+      langfuseSecretKey: ""
+      # Optional Secret reference for Langfuse Secret Key (used if langfuseSecretKey is not set)
+      langfuseSecretKeySecretName: ""
+      # Optional Secret key for Langfuse Secret Key (default: "secret-key")
+      langfuseSecretKeySecretKey: "secret-key"
 
     common:
+      autoscaler:
+        enabled: false
+        # minTargetReplicas defines the minimum number of pod replicas for each service.
+        # IMPORTANT: This value is used as:
+        #   1. The default/static replica count when HPA is disabled (no autoscaling)
+        #   2. The minimum replica count when HPA is enabled (HPA won't scale below this)
+        # The deployment replicas field is set to this value by default.
+        # To override per service, set minTargetReplicas in the service-specific section (e.g., ams.autoscaler.minTargetReplicas)
+        minTargetReplicas: 1
+        # maxTargetReplicas defines the maximum number of pod replicas for each service.
+        # Used only when HPA is enabled. When HPA is disabled, replicas stay at minTargetReplicas (static).
+        # To override per service, set maxTargetReplicas in the service-specific section (e.g., ams.autoscaler.maxTargetReplicas)
+        maxTargetReplicas: 3
+        # cpuAverageUtilization triggers autoscaler when average CPU usage exceeds this percentage.
+        # Only applies when HPA is enabled.
+        cpuAverageUtilization: 200
+      # Pod Disruption Budget Configuration
+      podDisruptionBudget:
+        # enabled specifies whether a PodDisruptionBudget is enabled. Supported values are true and false.
+        enabled: false
+        # maxUnavailable is the maximum number, or percentage, of unavailable pods during the disruption.
+        maxUnavailable: "33%"
+      # Resource Configuration for all services, can be overridden at the service level
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2500Mi
+        requests:
+          cpu: 300m
+          memory: 500Mi
       truststore:
         agenticAdditionalCASecrets: 
           - "uno-certificate"
@@ -927,7 +1099,7 @@ uno:
           caSecretKey: "" 
           # Whether to validate the hostname in the server certificate
           hostnameValidation : "true"
-      # By default the values are configured to work with the default Valkey deployed by the bitnami/valkey chart.
+      # By default the values are configured to work with the default Valkey deployed by the valkey/valkey chart.
       valkey:
         # valkeyPasswordSecret is the name of the Kubernetes secret that contains the Valkey password.
         valkeyPasswordSecret : "valkey-password-secret"
@@ -936,13 +1108,23 @@ uno:
         # valkeyPassword is the Valkey password. If you set valkeyPasswordSecret, this parameter is ignored.
         valkeyPassword : ""
         # valkeyHost is the hostname of the Valkey service.
-        valkeyHost: "valkey-primary"
+        valkeyHost: "valkey"
         # valkeyPort is the port of the Valkey service.
         valkeyPort: "6379"
         # valkeyDb is the database number of the Valkey service.
         valkeyDb: "0"
         # Username To be used to connect to Valkey service.
         valkeyUser:
+        # IAM Authentication Configuration for Valkey connection
+        valkeyIAMAuthenticationEnabled: "false"
+        # GCP Service Account to be used for IAM Authentication, only used if valkeyIAMAuthenticationEnabled is set to "true"
+        valkeyIAMServiceAccount: ""
+        # The scopes to be used for IAM Authentication, only used if valkeyIAMAuthenticationEnabled is set to "true"
+        valkeyIAMScopes: "https://www.googleapis.com/auth/cloud-platform"
+        #Prefix used to namespace all the keys in Valkey, you can use it to avoid key collisions with other applications using the same Valkey instance. This is especially useful when valkeyClusterModeEnabled is set to "true" to avoid collisions between different clusters using the same Valkey instance. 
+        valkeyApplicationPrefix: "agenticbuilder"
+        #To enable the client connection to Valkey to use the Valkey Cluster mode, set valkeyClusterModeEnabled to "true". When valkeyClusterModeEnabled is set to "true", the client will connect to the Valkey cluster using the valkeyClusterPrefix as the prefix for the cluster nodes
+        valkeyClusterModeEnabled: "false"
         #SSL Configuration for Valkey connection
         ssl:
           enabled: "false"
@@ -979,10 +1161,10 @@ uno:
         postgresDB: "agenticbuilder"
         #The postgres service name
         postgresService: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-primary'
-        #The postgres user password
-        postgresPassword: "Kt3oDP8KWBs3Hg5L11kR9hLhPekw8tIC" 
-        #postgresPasswordSecretName: "{{ .Release.Name }}-postgres-password"
-        #postgresPasswordSecretKey: "password"
+        # The password for the postgres user. If no value is defined, the chart automatically generates a password and stores it in a secret named {{ .Release.Name }}-postgres-password.
+        #postgresPassword: "" 
+        #postgresPasswordSecretName: "{{ include \"agenticbuilder.fullname\" . }}-postgres-password"
+        #postgresPasswordSecretKey: "postgres-password"
         # Only to let the init container create the database "$postgresDB" if it does not exist
         # Postgres Client connection timeout in seconds
         connectTimeout: "60"
@@ -995,6 +1177,8 @@ uno:
         #### Those settings are for Creating The user and the database if not present ####
         # Those values will not be used by the application, only in the initContainer for the initialization of the DB #
         initDatabases: true
+        # Database used by the admin connection during init containers. It must already exist.
+        postgresAdminSessionDB: "postgres"
         postgresAdminUserSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
         postgresAdminUserSecretKey: "user"
         postgresAdminPasswordSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
@@ -1025,6 +1209,8 @@ uno:
           # Only to let the init container create the database "$postgresDB" and the "$postgresUser" if it does not exist
 
       config:
+        # Set the log level for the Agentic AI Builder microservices. Supported values are DEBUG, INFO, WARN, ERROR. The default value is INFO.
+        logLevel: "INFO"
         # The configuration for the Agentic AI Builder microservices to connect to the UNO instance. Do not change the values below unless you know what you are doing.
         tokenProvider: "STARLETTE"
         enableAuthentication : "true"
@@ -1069,16 +1255,22 @@ uno:
       proxyURL: ""
       # The port on which the core service will be exposed
       port: 8000
-      # The number of replicas for the core service
-      replicaCount: 1
-      # Resource Configuration
-      resources:
-        limits:
-          cpu: 1000m
-          memory: 2500Mi
-        requests:
-          cpu: 300m
-          memory: 500Mi
+      # Autoscaler Configuration
+      autoscaler:
+        # Optional override. If null, uses common.autoscaler.enabled.
+        enabled: null
+        # Optional override. If null, uses common.autoscaler.minTargetReplicas.
+        minTargetReplicas: null
+        # Optional override. If null, uses common.autoscaler.maxTargetReplicas.
+        maxTargetReplicas: null
+        # Optional override. If null, uses common.autoscaler.cpuAverageUtilization.
+        cpuAverageUtilization: null
+      podDisruptionBudget:
+        # Optional override. If null, uses common.podDisruptionBudget.enabled.
+        enabled: null
+        # Optional override. If null, uses common.podDisruptionBudget.maxUnavailable.
+        maxUnavailable: null
+      resources: null
           
     ams:
       name: ams
@@ -1087,8 +1279,21 @@ uno:
       # The port on which the core service will be exposed
       port: 8080
       proxyURL: ""
-      # The number of replicas for the core service
-      replicaCount: 1
+      # Autoscaler Configuration
+      autoscaler:
+        # Optional override. If null, uses common.autoscaler.enabled.
+        enabled: null
+        # Optional override. If null, uses common.autoscaler.minTargetReplicas.
+        minTargetReplicas: null
+        # Optional override. If null, uses common.autoscaler.maxTargetReplicas.
+        maxTargetReplicas: null
+        # Optional override. If null, uses common.autoscaler.cpuAverageUtilization.
+        cpuAverageUtilization: null
+      podDisruptionBudget:
+        # Optional override. If null, uses common.podDisruptionBudget.enabled.
+        enabled: null
+        # Optional override. If null, uses common.podDisruptionBudget.maxUnavailable.
+        maxUnavailable: null
       # Resource Configuration
       resources:
         limits:
@@ -1096,7 +1301,7 @@ uno:
           memory: 2500Mi
         requests:
           cpu: 300m
-          memory: 500Mi
+          memory: 1200Mi
 
     runner:
       name: runner
@@ -1105,17 +1310,28 @@ uno:
       # The port on which the core service will be exposed
       port: 8080
       proxyURL: ""
-      # The number of replicas for the core service
-      replicaCount: 2
-      hpa:
-        enabled: false
-        minReplicas: 1
-        maxReplicas: 10
+      # Autoscaler Configuration
+      autoscaler:
+        # Optional override. If null, uses common.autoscaler.enabled.
+        enabled: null
+        # Optional override. If null, uses common.autoscaler.minTargetReplicas.
+        # Runner has minTargetReplicas: 2 to ensure at least 2 running instances.
+        minTargetReplicas: 2
+        # Optional override. If null, uses common.autoscaler.maxTargetReplicas.
+        maxTargetReplicas: null
+        # Optional override. If null, uses common.autoscaler.cpuAverageUtilization.
+        cpuAverageUtilization: null
+      podDisruptionBudget:
+        # Optional override. If null, uses common.podDisruptionBudget.enabled.
+        enabled: null
+        # Optional override. If null, uses common.podDisruptionBudget.maxUnavailable.
+        maxUnavailable: null
       # Resource Configuration
       config:
         # The base URL of the UNO MCP service.
         unoMCPBaseURL : ""
         maxAgents: 5
+      #Custom resource configuration for the runner service.
       resources:
         limits:
           cpu: 2
@@ -1129,43 +1345,49 @@ uno:
       proxyURL: ""
     image:
       # The registry where the image is hosted
-      repository: hclcr.io/uno-ea
+      repository: hclcr.io/uno
       # The tag of the images
-      tag: 2.1.4.0-beta2
+      tag: 2.1.7.0-beta1
       # The Pull Policy for the images
       imagePullPolicy: Always
+      #Init containers images
+      init:
+        # Busybox image used in init containers for database initialization and other tasks, you can override it with any other image that has the required tools for your init containers, such as psql for Postgres initialization. The default value is "busybox:latest", but you can change it to fit your needs.
+        busybox: busybox:latest
+        # Postgres image used in the init container for Postgres database initialization, you can override it with any other image that has the required tools for your init container, such as psql for Postgres initialization. The default value is "postgres:latest", but you can change it to fit your needs.
+        postgres: postgres:latest
 
     additionalPullSecret : ""
+    # Autoinstalled postgres configuration, used by default if global.postgres.usePercona = true, you can override it to use a different configuration for the autoinstalled Postgres instance.
+    pgdb:
+      crVersion: "v1"
+      image: "docker.io/percona/percona-postgresql-operator:2.7.0-ppg17.5.2-postgres"
+      port: 5432
+      postgresVersion: 17
+      pause: false
+      unmanaged: false
+      instanceName: "agentic-postgres"
+      replicas: 1
+      affinityLabel: "postgres"
+      topologyKey: "kubernetes.io/hostname"
+      storageSize: "5Gi"
 
-pgdb:
-  crVersion: "v1"
-  image: "docker.io/percona/percona-postgresql-operator:2.7.0-ppg17.5.2-postgres"
-  port: 5432
-  postgresVersion: 17
-  pause: false
-  unmanaged: false
-  instanceName: "agentic-postgres"
-  replicas: 1
-  affinityLabel: "postgres"
-  topologyKey: "kubernetes.io/hostname"
-  storageSize: "5Gi"
-  
-  users:
-    - name: postgres
-      options: "SUPERUSER"
+      users:
+        - name: postgres
+          options: "SUPERUSER"
 
-  resources:
-    requests:
-      memory: "600Mi"
-      cpu: "500m"
-    limits:
-      memory: "1024Mi"
-      cpu: "1000m"
+      resources:
+        requests:
+          memory: "850Mi"
+          cpu: "500m"
+        limits:
+          memory: "1024Mi"
+          cpu: "1000m"
 
-  patroni:
-    dynamicConfiguration:
-      postgresql:
-        pg_hba:
-        - hostssl all all all md5 
-        - hostssl all all all scram-sha-256
-        - hostssl all all all cert
+      patroni:
+        dynamicConfiguration:
+          postgresql:
+            pg_hba:
+            - hostssl all all all md5
+            - hostssl all all all scram-sha-256
+            - hostssl all all all cert

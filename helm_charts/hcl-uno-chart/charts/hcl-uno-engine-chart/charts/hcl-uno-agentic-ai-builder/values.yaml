@@ -6,26 +6,59 @@
 # Use, duplication or disclosure restricted by GSA ADP Schedule
 # *******************************************************************************
 
-replicaCount: 1
-
 global:
   uno:
     engineHost: ""
     enginePort: ""
-  
+  enableMultitenant: "false"
   hclImagePullSecret: entitledregistry
 
 #Version Tracking
 track: dev
 common:
+  autoscaler:
+    enabled: false
+    # minTargetReplicas defines the minimum number of pod replicas for each service.
+    # IMPORTANT: This value is used as:
+    #   1. The default/static replica count when HPA is disabled (no autoscaling)
+    #   2. The minimum replica count when HPA is enabled (HPA won't scale below this)
+    # The deployment replicas field is set to this value by default.
+    # To override per service, set minTargetReplicas in the service-specific section (e.g., ams.autoscaler.minTargetReplicas)
+    minTargetReplicas: 1
+    # maxTargetReplicas defines the maximum number of pod replicas for each service.
+    # Used only when HPA is enabled. When HPA is disabled, replicas stay at minTargetReplicas (static).
+    # To override per service, set maxTargetReplicas in the service-specific section (e.g., ams.autoscaler.maxTargetReplicas)
+    maxTargetReplicas: 3
+    # cpuAverageUtilization triggers autoscaler when average CPU usage exceeds this percentage.
+    # Only applies when HPA is enabled.
+    cpuAverageUtilization: 200
+  # Pod Disruption Budget Configuration
+  podDisruptionBudget:
+    # enabled specifies whether a PodDisruptionBudget is enabled. Supported values are true and false.
+    enabled: false
+    # maxUnavailable is the maximum number, or percentage, of unavailable pods during the disruption.
+    maxUnavailable: "33%"
+  # Resource Configuration for all services, can be overridden at the service level
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2500Mi
+    requests:
+      cpu: 300m
+      memory: 500Mi
   valkey:
     valkeyPasswordSecret : "valkey-password-secret"
     valkeyPasswordSecretKey: "password"
     valkeyPassword : ""
-    valkeyHost: "valkey-primary"
+    valkeyHost: "valkey"
     valkeyPort: "6379"
     valkeyDb: "0"
     valkeyUser:
+    valkeyIAMAuthenticationEnabled: "false"
+    valkeyIAMServiceAccount: ""
+    valkeyIAMScopes: "https://www.googleapis.com/auth/cloud-platform"
+    valkeyClusterModeEnabled: "false"
+    valkeyApplicationPrefix: "agenticbuilder"
     ssl:
       enabled: "false"
       # Client Configuration for Mutual TLS
@@ -58,10 +91,10 @@ common:
     postgresDB: "agenticbuilder"
     #The postgres service name
     postgresService: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-primary'
-    #The postgres user password
-    postgresPassword: "" 
-    #postgresPasswordSecretName: "{{ .Release.Name }}-postgres-password"
-    #postgresPasswordSecretKey: "password"
+    # The postgres user password, if not set it will be generated and stored in a secret called {{ .Release.Name }}-postgres-password
+    #postgresPassword: "" 
+    #postgresPasswordSecretName: "{{ include \"agenticbuilder.fullname\" . }}-postgres-password"
+    #postgresPasswordSecretKey: "postgres-password"
     # Only to let the init container create the database "$postgresDB" if it does not exist
     # Postgres Client connection timeout in seconds
     connectTimeout: "60"
@@ -71,10 +104,12 @@ common:
     options: ""
     # Client Required Authentication for Postgres connection ( scram-sha-256, md5, password, gss, sspi, ident, peer, ldap, none)
     requiredAuthentication : "scram-sha-256"
-
     #### Those settings are for Creating The user and the database if not present ####
     # Those values will not be used by the application, only in the initContainer for the initialization of the DB #
     initDatabases: true
+    # Database used by the admin connection during init containers.
+    # Keep this pointed to an existing administrative database.
+    postgresAdminSessionDB: "postgres"
     postgresAdminUserSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
     postgresAdminUserSecretKey: "user"
     postgresAdminPasswordSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
@@ -138,6 +173,8 @@ common:
       # Whether to validate the hostname in the server certificate
       hostnameValidation : "true"
   config:
+    #Set the log level for the application, supported values are "DEBUG", "INFO", "WARN", "ERROR"
+    logLevel: "INFO"
     enableAuthentication : "false"
     tokenProvider: ""
     tokenProviderOIDCServerURL:  ""
@@ -166,8 +203,22 @@ ams:
   proxyURL: ""
   # Deployment strategy
   port: 8080
-  # The number of replicas for the core service
-  replicaCount: 1
+  autoscaler:
+    # Optional override. If null, common.autoscaler.enabled is used.
+    enabled: null
+    # Optional override for minimum replica count. If null, uses common.autoscaler.minTargetReplicas.
+    # This is the static replica count when HPA is disabled, or minimum when HPA is enabled.
+    minTargetReplicas: null
+    # Optional override for maximum replica count. If null, uses common.autoscaler.maxTargetReplicas.
+    # Only used when HPA is enabled.
+    maxTargetReplicas: null
+    # Optional override for CPU threshold. If null, uses common.autoscaler.cpuAverageUtilization.
+    cpuAverageUtilization: null
+  podDisruptionBudget:
+    # Optional override. If empty, common.podDisruptionBudget.enabled is used.
+    enabled: null
+    # Optional override. If empty, common.podDisruptionBudget.maxUnavailable is used.
+    maxUnavailable: null
   # Resource Configuration
   config:
     exportedSchemasFolder :
@@ -177,7 +228,7 @@ ams:
       memory: 2500Mi
     requests:
       cpu: 300m
-      memory: 500Mi
+      memory: 1200Mi
 
 credentialManager:
   # Name of the core service
@@ -190,18 +241,27 @@ credentialManager:
     type: Recreate
   # The port on which the core service will be exposed
   port: 8000
-  # The number of replicas for the core service
-  replicaCount: 1
+  autoscaler:
+    # Optional override. If null, common.autoscaler.enabled is used.
+    enabled: null
+    # Optional override for minimum replica count. If null, uses common.autoscaler.minTargetReplicas.
+    # This is the static replica count when HPA is disabled, or minimum when HPA is enabled.
+    minTargetReplicas: null
+    # Optional override for maximum replica count. If null, uses common.autoscaler.maxTargetReplicas.
+    # Only used when HPA is enabled.
+    maxTargetReplicas: null
+    # Optional override for CPU threshold. If null, uses common.autoscaler.cpuAverageUtilization.
+    cpuAverageUtilization: null
+  podDisruptionBudget:
+    # Optional override. If empty, common.podDisruptionBudget.enabled is used.
+    enabled: null
+    # Optional override. If empty, common.podDisruptionBudget.maxUnavailable is used.
+    maxUnavailable: null
   # Resource Configuration
   config:
     exportedSchemasFolder :
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 2500Mi
-    requests:
-      cpu: 300m
-      memory: 500Mi
+  # Optional override. If empty, common.resources is used.
+  resources: null
 
 runner:
   name: runner
@@ -210,14 +270,26 @@ runner:
   proxyURL: ""
   # The port on which the core service will be exposed
   port: 8080
-  # The number of replicas for the core service
-  replicaCount: 2
-  hpa:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 10
+  autoscaler:
+    # Optional override. If null, common.autoscaler.enabled is used.
+    enabled: null
+    # Optional override for minimum replica count. If null, uses common.autoscaler.minTargetReplicas.
+    # Runner has minTargetReplicas: 2 to ensure at least 2 running instances.
+    # This is the static replica count when HPA is disabled, or minimum when HPA is enabled.
+    minTargetReplicas: 2
+    # Optional override for maximum replica count. If null, uses common.autoscaler.maxTargetReplicas.
+    # Only used when HPA is enabled.
+    maxTargetReplicas: null
+    # Optional override for CPU threshold. If null, uses common.autoscaler.cpuAverageUtilization.
+    cpuAverageUtilization: null
+  podDisruptionBudget:
+    # Optional override. If empty, common.podDisruptionBudget.enabled is used.
+    enabled: null
+    # Optional override. If empty, common.podDisruptionBudget.maxUnavailable is used.
+    maxUnavailable: null
   # Resource Configuration
   config:
+    a2aPublicBaseUrl: ""
     stateManager: "valkey"
     executorScheme : "https"
     maxAgents: 5
@@ -237,6 +309,11 @@ runner:
       cpu: 500m
       memory: 1638Mi
 uno:
+  hostname: ""
+  port: ""
+  proxyURL: ""
+
+iaa:
   hostname: ""
   port: ""
   proxyURL: ""
@@ -268,6 +345,21 @@ telemetry:
     telemetryExporterHeaders: ""
     # Timeout in milliseconds for the telemetry exporter
     telemetryExporterTimeoutMillis: "10000"
+    # If your trace exporter requires different headers than metrics, provide them here in the format "key1=value1,key2=value2"
+    telemetryExporterTraceHeaders: ""
+    # Optional Langfuse credentials for OTLP trace export. Prefer the SecretName/SecretKey form for production.
+    # Langfuse Public Key (used for trace export)
+    langfusePublicKey: ""
+    # Optional Secret reference for Langfuse Public Key (used if langfusePublicKey is not set)
+    langfusePublicKeySecretName: ""
+    # Optional Secret key for Langfuse Public Key (default: "public-key")
+    langfusePublicKeySecretKey: "public-key"
+    # Langfuse Secret Key (used for trace export)
+    langfuseSecretKey: ""
+    # Optional Secret reference for Langfuse Secret Key (used if langfuseSecretKey is not set)
+    langfuseSecretKeySecretName: ""
+    # Optional Secret key for Langfuse Secret Key (default: "secret-key")
+    langfuseSecretKeySecretKey: "secret-key"
 
 certificates:
   # No enable if you want to use customized certificates
@@ -302,11 +394,18 @@ authorization:
 # Configuration for the images used in the deployment
 image:
   # The registry where the image is hosted
-  repository: hclcr.io/slt/agenticbuilder
+  repository: hclcr.io/uno
   # The tag/version of the images
-  tag: 2.1.4.0-beta2
+  tag: 2.1.7.0-beta1
   # The Pull Policy for the images
   imagePullPolicy: Always
+
+  #Init containers images
+  init:
+    # Busybox image used in init containers for database initialization and other tasks, you can override it with any other image that has the required tools for your init containers, such as psql for Postgres initialization. The default value is "busybox:latest", but you can change it to fit your needs.
+    busybox: busybox:latest
+    # Postgres image used in the init container for Postgres database initialization, you can override it with any other image that has the required tools for your init container, such as psql for Postgres initialization. The default value is "postgres:latest", but you can change it to fit your needs.
+    postgres: postgres:latest
 
 # to configure if you want a custom service account
 serviceAccount:
@@ -351,7 +450,7 @@ pgdb:
 
   resources:
     requests:
-      memory: "600Mi"
+      memory: "850Mi"
       cpu: "500m"
     limits:
       memory: "1024Mi"
