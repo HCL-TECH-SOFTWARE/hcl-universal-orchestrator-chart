@@ -120,7 +120,7 @@ Before you begin the deployment process, ensure your environment meets the follo
  - Kubernetes cluster v 1.32 or later
  - Helm v 4.0.0 or later
  - Messaging system: Apache Kafka v 3.9.1 or later OR Redpanda v 25.1.12 or later 
- - Database: MongoDB v 8 or later OR Azure Cosmos DB for MongoDB (vCore) OR DocumentDB v 5 Instance-base cluster for AWS deployment.
+ - Database: MongoDB v 8 or later OR Azure DocumentDB (formerly known as Azure Cosmos DB for MongoDB vCore) OR DocumentDB v 5 Instance-base cluster for AWS deployment.
  - Enablement of an OIDC provider.
 
 **For Agentic AI Builder**
