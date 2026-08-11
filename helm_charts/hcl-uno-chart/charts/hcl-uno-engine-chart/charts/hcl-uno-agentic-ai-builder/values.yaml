@@ -396,7 +396,7 @@ image:
   # The registry where the image is hosted
   repository: hclcr.io/uno
   # The tag/version of the images
-  tag: 2.1.6.0
+  tag: 2.1.7.0-beta1
   # The Pull Policy for the images
   imagePullPolicy: Always
 

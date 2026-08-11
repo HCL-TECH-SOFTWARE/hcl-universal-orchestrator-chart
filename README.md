@@ -114,7 +114,7 @@ Before you begin the deployment process, ensure your environment meets the follo
  - Kubernetes cluster v 1.32 or later
  - Helm v 3.19 or later
  - Messaging system: Apache Kafka v 3.9 or later OR Redpanda v 25.3 or later 
- - Database: MongoDB v 8 OR Azure Cosmos DB for MongoDB (vCore) OR AWS DocumentDB v 5 (Note: Support for the DocumentDB platform is strictly limited to Instance-based clusters only)
+ - Database: MongoDB v 8 OR Azure DocumentDB (formerly known as Azure Cosmos DB for MongoDB vCore) OR AWS DocumentDB v 5 (Note: Support for the DocumentDB platform is strictly limited to Instance-based clusters only)
  - Enablement of an OIDC provider.
 
 **For Agentic AI Builder**
@@ -231,7 +231,7 @@ To deploy HCL Universal Orchestrator, perform the following steps:
    
 2. Pull the Helm chart:
 
-        helm pull oci://hclcr.io/uno/hcl-uno-chart
+        helm pull oci://hclcr.io/uno/hcl-uno-chart --version 2.1.7.0-beta1
 	
 **Note:** If you want to download a specific version of the chart use the `--version` option in the `helm pull` command.
 	

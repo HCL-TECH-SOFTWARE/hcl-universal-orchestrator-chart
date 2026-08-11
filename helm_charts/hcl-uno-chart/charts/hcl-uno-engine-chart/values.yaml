@@ -18,11 +18,11 @@ global:
   # pluginImageRepository is the name of the repository that contains the image with tags for Automation Hub integrations.
   pluginImageRepository: hclcr.io/uno
   # pluginImageName is the name of the image with tags for Automation Hub integrations.
-  pluginImageName: hcl-uno-automation-plugins:2.1.6.0
+  pluginImageName: hcl-uno-automation-plugins:2.1.7.0-beta1
   # extraImages is the list of images with tags containing OCLI and agent for download from engine.
   extraImages:
     - registry: hclcr.io/uno
-      name: hcl-uno-external-pod:2.1.6.0
+      name: hcl-uno-external-pod:2.1.7.0-beta1
   customLabels:
     - name: "environment"
       value: "prod"
@@ -335,7 +335,7 @@ config:
     # pullPolicy defines when data is pulled from your event streaming platform. Supported values are Always, Never, IfNotPresent.
     pullPolicy: Always
     # tag is the tag of the image. The default value is latest.
-    tag: 2.1.6.0
+    tag: 2.1.7.0-beta1
   orchestrator:
     # Specifies for how long the Task Run History is retained (in ISO 8601 format, e.g., P400D).
     jobRunHistoryRetentionDuration: P400DT0H
@@ -1150,7 +1150,7 @@ agenticAIBuilder:
     # The registry where the image is hosted
     repository: hclcr.io/uno
     # The tag of the images
-    tag: 2.1.6.0
+    tag: 2.1.7.0-beta1
     # The Pull Policy for the images
     imagePullPolicy: Always
     init:
@@ -1162,7 +1162,7 @@ agenticAIBuilder:
 hclaipilot:  
   image:
     repository: hclcr.io/uno
-    tag: 2.1.6.0
+    tag: 2.1.7.0-beta1
   
   channels:
     slackToken: ""
@@ -1324,7 +1324,7 @@ hclaipilot:
 
     container:
       registry: hclcr.io/uno # Image name
-      tag: 2.1.6.0  # Image tag
+      tag: 2.1.7.0-beta1  # Image tag
     authorization:
       # The URL of the OpenID Connect (OIDC) server for the RAG service to authenticate the jwt token
       oidcServerURL: "https://uno-keycloak-ssl:8843"
