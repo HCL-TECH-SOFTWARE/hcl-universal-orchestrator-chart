@@ -35,7 +35,7 @@ gcr.io/blackjack-209019/services/uno
 {{- end -}}
 
 {{- define "uno.common.label" -}}
-uno.microservice.version: 2.1.6.0
+uno.microservice.version: 2.1.7.0-beta1
 app.kubernetes.io/name: {{ .Release.Name | quote}}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}

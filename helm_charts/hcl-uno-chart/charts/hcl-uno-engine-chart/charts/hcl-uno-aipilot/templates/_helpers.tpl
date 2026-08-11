@@ -101,9 +101,9 @@ image: {{ include "pilot.registry" . }}/hcl-aipilot-{{ $container.imageName }}:{
 {{- $root := index . 0 -}}
 {{- $container := index . 1 -}}
 {{- if eq $root.Values.global.hclImageRegistry "hclcr.io/sofy" -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if eq $root.Values.global.hclImageRegistry "hclcr.io" -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if eq $root.Values.global.hclImageRegistry "gcr.io/blackjack-209019" -}}
 gcr.io/blackjack-209019/services/uno
 {{- else if $root.Values.global.hclImageRegistry -}}

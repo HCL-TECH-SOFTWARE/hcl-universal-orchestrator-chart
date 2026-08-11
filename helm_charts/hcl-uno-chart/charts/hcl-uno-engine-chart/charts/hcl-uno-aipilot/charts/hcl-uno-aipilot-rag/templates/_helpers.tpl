@@ -151,9 +151,9 @@ imagePullSecrets:
 
 {{- define "rag.registry" -}}
 {{- if and .Values.global (eq .Values.global.hclImageRegistry "hclcr.io/sofy") -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if and .Values.global (eq .Values.global.hclImageRegistry "hclcr.io") -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if and .Values.global (eq .Values.global.hclImageRegistry "gcr.io/blackjack-209019") -}}
 gcr.io/blackjack-209019/services/uno
 {{- else if and .Values.global .Values.global.hclImageRegistry -}}

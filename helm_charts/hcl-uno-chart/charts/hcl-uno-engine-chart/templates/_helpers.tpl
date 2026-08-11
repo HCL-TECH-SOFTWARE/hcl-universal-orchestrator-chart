@@ -261,7 +261,7 @@ prometheus.io/path: "/q/metrics"
 {{- end -}}
 
 {{- define "uno.common.label" -}}
-uno.microservice.version: 2.1.6.0
+uno.microservice.version: 2.1.7.0-beta1
 app.kubernetes.io/name: {{ .Release.Name | quote}}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -1276,9 +1276,9 @@ volumeMounts:
 
 {{- define "uno.repouno" -}}
 {{- if eq .Values.global.hclImageRegistry "hclcr.io/sofy" -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if eq .Values.global.hclImageRegistry "hclcr.io" -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if eq .Values.global.hclImageRegistry "gcr.io/blackjack-209019" -}}
 gcr.io/blackjack-209019/services/uno
 {{- else if .Values.global.hclImageRegistry -}}
@@ -1291,9 +1291,9 @@ gcr.io/blackjack-209019/services/uno
 
 {{- define "uno.pluginImageRepository" -}}
 {{- if eq .Values.global.hclImageRegistry "hclcr.io/sofy" -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if eq .Values.global.hclImageRegistry "hclcr.io" -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if eq .Values.global.hclImageRegistry "gcr.io/blackjack-209019" -}}
 gcr.io/blackjack-209019/services/uno
 {{- else if  .Values.global.hclImageRegistry  -}}
@@ -1310,13 +1310,13 @@ gcr.io/blackjack-209019/services/uno
     {{- $imagesRepository := "" -}}
     {{- if eq $root.Values.global.hclImageRegistry "hclcr.io/sofy" -}}
         {{- if contains "/uno" $images.registry -}}
-          {{ $imagesRepository = "hclcr.io/uno" }}
+          {{ $imagesRepository = "hclcr.io/uno-ea" }}
         {{- else -}}
           {{ $imagesRepository = "hclcr.io/wa" }}
         {{- end -}}
     {{- else if eq $root.Values.global.hclImageRegistry "hclcr.io" -}}
         {{- if contains "/uno" $images.registry -}}
-          {{ $imagesRepository = "hclcr.io/uno" }}
+          {{ $imagesRepository = "hclcr.io/uno-ea" }}
         {{- else -}}
           {{ $imagesRepository = "hclcr.io/wa" }}
         {{- end -}}

@@ -103,9 +103,9 @@ Create image name as "repository-name:tag".
 
 {{- $dict := dict "globalRegistry" "" -}}
 {{- if eq $root.Values.global.hclImageRegistry "hclcr.io/sofy" -}}
-  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno" -}}
+  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno-ea" -}}
 {{- else if eq $root.Values.global.hclImageRegistry "hclcr.io" -}}
-  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno" -}}
+  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno-ea" -}}
 {{- else if eq $root.Values.global.hclImageRegistry "gcr.io/blackjack-209019" -}}
   {{- $_ := set $dict "globalRegistry" "gcr.io/blackjack-209019/services/uno" -}}
 {{- else if $root.Values.global.hclImageRegistry -}}
