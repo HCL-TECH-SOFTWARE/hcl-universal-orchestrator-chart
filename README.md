@@ -14,7 +14,7 @@ To respond to the growing request to make automation opportunities more accessib
 
 HCL Universal Orchestrator is a complete, modern solution to orchestrate calendar-based and event-driven tasks, business and IT processes. It enables organizations to gain complete visibility and control over attended or unattended workflows. From a single point of control, it supports multiple platforms and provides advanced integration with enterprise applications including ERP, Business Analytics, File Transfer, Big Data, and Cloud applications.
 
-For more information about HCL Universal Orchestrator, see the product documentation library in [HCL Universal Orchestrator documentation](https://help.hcl-software.com/UnO/v2.1.3/index.html).
+For more information about HCL Universal Orchestrator, see the product documentation library in [HCL Universal Orchestrator documentation](https://help.hcl-software.com/UnO/ContinuousDelivery/index.html).
 
 ## Details
 
@@ -36,7 +36,8 @@ HCL Universal Orchestrator can be deployed across a single cluster, but you can 
 HCL Universal Orchestrator supports all the platforms supported by the runtime provider of your choice.
 
 ### OpenShift support
-You can deploy HCL Universal Orchestrator on OpenShift by following the instruction in this documentation and using helm charts. 
+
+You can deploy HCL Universal Orchestrator on OpenShift by following the instructions in this documentation and using Helm charts.
 
 For a successful deployment on OCP, you must configure specific parameters in the `values.yaml` file using the URL assigned to the route exposing the API gateway.
 
@@ -86,14 +87,10 @@ Core:
  - hcl-uno-scheduler
  - hcl-uno-storage
  - hcl-uno-tenantmanager
-				
  - hcl-uno-timer
  - hcl-uno-toolbox
  
 
-				  
-					   
-					   
 
 UnO AI Pilot:
 
@@ -102,9 +99,6 @@ UnO AI Pilot:
  - hcl-aipilot-core
  - hcl-aipilot-actions
  - hcl-aipilot-nlg
-		   
- 
-						
 
 UnO Agentic AI Builder:
 
@@ -116,32 +110,28 @@ UnO Agentic AI Builder:
 Before you begin the deployment process, ensure your environment meets the following prerequisites:
 
 **Mandatory**
- - Kubectl v 1.32 or later
+ - Kubectl v 1.34 or later
  - Kubernetes cluster v 1.32 or later
- - Helm v 4.0.0 or later
- - Messaging system: Apache Kafka v 3.9.1 or later OR Redpanda v 25.1.12 or later 
- - Database: MongoDB v 8 or later OR Azure Cosmos DB for MongoDB (vCore) OR DocumentDB v 5 Instance-base cluster for AWS deployment.
+ - Helm v 3.19 or later
+ - Messaging system: Apache Kafka v 3.9 or later OR Redpanda v 25.3 or later 
+ - Database: MongoDB v 8 OR Azure DocumentDB (formerly known as Azure Cosmos DB for MongoDB vCore) OR AWS DocumentDB v 5 (Note: Support for the DocumentDB platform is strictly limited to Instance-based clusters only)
  - Enablement of an OIDC provider.
 
 **For Agentic AI Builder**
  - Valkey (Redis-compatible): Used as the in-memory data store. Acts as a drop-in replacement for Redis.
- - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/v2.1.3/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
-																									 
-														   
-													  
-																		
+ - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/ContinuousDelivery/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
 
 
 **Note:** If you want to deploy both the Agentic AI Builder and the AI Pilot, you only need one Percona pgvector instance. 
 
 
  **For UnO AI Pilot**
- - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/v2.1.3/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
+ - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/ContinuousDelivery/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
 
  **Note:** If you want to deploy both the Agentic AI Builder and the AI Pilot, you only need one Percona pgvector instance.
 
  
-**Strongly recommended**				
+**Strongly recommended**
  - Jetstack cert-manager
 
   We strongly recommend the use of a cert-manager as it automatically generates and updates the required certificates. You can choose not to use it, in which case you need to:
@@ -149,6 +139,13 @@ Before you begin the deployment process, ensure your environment meets the follo
    - Create your own custom certificates
    - Insert the certificates inside the correct Kubernetes secrets
    - Make sure that the names of the Kubernetes secrets match the names specified in the `values.yaml`deployment file
+
+ - Using a private image registry
+  Hosting HCL Universal Orchestrator images in an internal registry ensures complete control over image management, without depending on external network connectivity.
+  To use your own registry, complete the following steps before you deploy Universal Orchestrator:
+  1. **Pull the images**: Download all HCL Universal Orchestrator microservice images from the registry.
+  2. **Push to your own registry**: Upload the downloaded images to your internal image registry.
+  3. **Update the configuration**: Modify the **values.yaml** file to update the repository paths. Ensure that the image pointers refer to your private registry instead of the HCL Universal Orchestrator registry.
 
 **Optional**
 -   Grafana and Prometheus for monitoring dashboard
@@ -176,14 +173,13 @@ The following are prerequisites specific to each supported cloud provider:
 |--|--|--|
 |**uno-orchestrator microservice**  | CPU: 2, Memory: 1 GB  |CPU: 0.3, Memory: 0.5 GB|
 |**Each remaining microservice**  | CPU: 2, Memory: 1 GB  |CPU: 0.3, Memory: 0.5 GB  |
-																							   
 |**AIPilot-core** | CPU : 1, Memory: 2.5GB | CPU 0.5, Memory: 2GB
 |**AIPilot-action**| CPU: 0.3, Memory: 0.3GB | CPU: 0.1, Memory: 0.2GB
 |**AIPilot-nlg**| CPU: 0.3, Memory: 0.5GB | CPU: 0.1, Memory: 0.3GB
 |**AIPilot-rag**| CPU: 0.8, Memory: 1Gi | CPU: 0.2 , Memory: 0.2Gi
 |**agentic-ams** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi
 |**agentic-runner** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi
-|**agentic-cm** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi																	
+|**agentic-cm** | CPU : 1, Memory: 250 Mi | CPU 300m, Memory: 500Mi
 
 No disk space is required for the microservices, however, at least 100 GB are recommended for Kafka and 100 GB for MongoDB. Requirements vary depending on your workload.
 
@@ -204,13 +200,14 @@ To create the namespace, run the following command:
 
         kubectl create namespace <uno_namespace>
 	
+
 ### Creating the Secret 
 
 If you already have a license, then you can proceed to obtain your entitlement key. To learn more about acquiring an HCL Universal Orchestrator license, contact HWAinfo@hcl.com. 
 
 Obtain your entitlement key and store it on your cluster by creating a [Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/). Using a Kubernetes secret allows you to securely store the key on your cluster and access the registry to download the chart and product images. 
 
-1. Access the entitled registry with your OIDC credentials after being accepted into the beta program.
+1. Access the entitled registry.  Contact your HCL sales representative for the login details required to access the HCL Entitled Registry.
 2. To create a pull secret for your entitlement key that enables access to the entitled registry, run the following command:
 
          kubectl create secret docker-registry -n <uno_namespace> sa-<uno_namespace> --docker-server=<registry_server> --docker-username=<user_name> --docker-password=<password>
@@ -234,8 +231,8 @@ To deploy HCL Universal Orchestrator, perform the following steps:
    
 2. Pull the Helm chart:
 
-        helm pull oci://hclcr.io/uno-ea/hcl-uno-chart --version 2.1.4-beta1
-
+        helm pull oci://hclcr.io/uno-ea/hcl-uno-chart --version 2.1.7-beta1
+	
 **Note:** If you want to download a specific version of the chart use the `--version` option in the `helm pull` command.
 	
 3. Customize the deployment.
@@ -249,9 +246,20 @@ The license parameter determines whether the license agreement is accepted or no
     global.license: accept
 
 
+If you plan to use GenAI features, you must also configure your MHS (My HCL Software) license details in the `values.yaml` file:
+
+	license:
+      # Url of MHS license server
+      licenseServerUrl: https://api.hcltechsw.com
+      # Key of Deployment on MHS license server
+      licenseServerKey: <your_mhs_license_server_key>
+
+
 - Configuring the database section in the values.yaml file
 
-The values of the following parameters are placeholders used as an example. When assigning values to these parameters in your values.yaml file, make sure that they reflect the values used in the database deployment configuration.
+The values of the following parameters are placeholders used as an example. When assigning values to these parameters in your values.yaml file, make sure that they reflect the values used in your specific database deployment configuration.
+
+For a standard MongoDB deployment:
 
     uno.database.url: mongodb://hcl-uno-db-mongodb.db.svc.cluster.local:27017
     uno.database.type: mongodb
@@ -260,7 +268,14 @@ The values of the following parameters are placeholders used as an example. When
     uno.database.password: mongopassword
     uno.database.tls: false
     uno.database.tlsInsecure: false
-   
+
+For an AWS DocumentDB (Instance-based cluster) deployment: If you are deploying on AWS and using DocumentDB, you must use the specific connection URL format provided on the DocumentDB connectivity page.
+
+    uno.database.url: mongodb://<insert_your_user>:<insertYourPassword>@docdb-uno.cluster.docdb.amazonaws.com:<your_port>/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
+    uno.database.type: mongodb
+    uno.database.databaseName: uno
+
+   Important: Because the DocumentDB connection URL requires TLS (tls=true) and references a certificate file (tlsCAFile=global-bundle.pem), you must download the global-bundle.pem file from the DocumentDB connectivity page and create a Kubernetes secret in your namespace containing this certificate before deploying the chart.
 
 - Configuring the kafka section in the values.yaml file
 
@@ -305,14 +320,16 @@ The values of the following parameters are placeholders used as an example. When
 
       uno.ingress.enabled: false
 
+
   To customize the Ingress, add annotations by editing the following parameter in the **values.yaml** file:
 
       uno.ingress.annotations.xxxxxxxxx: yyyyyyyyy
- 
+
   For example: 
-  
+
       uno.ingress.annotations.nginx.ingress.kubernetes.io/client-header-buffer-size: 8k
- 
+
+  
   To make sure HCL Universal Orchestrator trusts the external components used for the environment deployment, you must assign the certificate values of the external components as secrets for the following parameters:
 
     uno.config.certificates.additionalCASecrets: certificatesecret
@@ -326,6 +343,8 @@ The values of the following parameters are placeholders used as an example. When
    
 **TIP:** Use a short name or acronym when specifying this value to ensure it is readable.
 
+**Note:** If the system restarts or behaves unexpectedly, check the logs to identify the cause. Follow the recovery steps for that specific event to restore the system.
+
 The following are some useful Helm commands:
 
 * To list all of the Repo releases: 
@@ -335,14 +354,11 @@ The following are some useful Helm commands:
 * To update the Helm release:
 
         helm upgrade <uno_release_name> <repo_name>/hcl-uno-chart -f values.yaml -n <uno_namespace>
-		
-* To update helm repo release:
-  
-        helm repo update
 	
 * To delete the Helm release: 
 
         helm uninstall <uno_release_name> -n <uno_namespace>
+
 
 ### Configuring optional product components
 
@@ -357,8 +373,6 @@ Follow the steps below to enable and set up a multitenant environment on HCL Uni
  1. Open the **values.yaml** file and go to the `uno.config.multitenant` section.
 
  2. Enable multitenancy by setting the `uno.config.multitenant.enabled` parameter to `true`.
-
-																																	
 
  3. Define the tenant administrators by editing the `uno.config.multitenant.admins`. You have three options to specify tenant administrators:
   
@@ -379,7 +393,6 @@ Your multitenant environment is ready.
 To enable e-mail notifications, edit the **values.yaml** file to set the `uno.mail.enabled` parameter to `true`, and then specify the required Simple Mail Transfer Protocol (SMTP) configuration parameters and credentials. 
 
 Email notifications are sent from a default sender, which is configured using the `config.mail.from` parameter of the **values.yaml** file. The parameter contains an email address, and it can optionally contain a display name in the following format:
-  																																																				   
 
       config.mail.from = DisplayName <email@address.com>
       
@@ -388,14 +401,13 @@ For example:
       config.mail.from = John <noreply@uno.com>
 
 In this case, the recipient receives emails originating from John with the sending address noreply@uno.com.
-	
 
 On multitenant environments, you can edit the display name used for email notifications by editing the `uno.config.multitenant.eMailSender` parameter. 
 
 **AI Agents**
 
 You can create an AI agent using three different agent types: External MCP, Basic, and Agentic AI Builder. For more information, see [Managing agent types in the AI agent
-](https://help.hcl-software.com/UnO/v2.1.3/Orchestrating/to_manage_agent_types.html).																					 
+](https://help.hcl-software.com/UnO/ContinuousDelivery/Orchestrating/to_manage_agent_types.html).
 
 **Generative workflows and knowledge base**
 
@@ -403,21 +415,49 @@ You can enable the generative features of the AI Agent and the UnO AI Pilot for 
 
     uno.config.genai.enabled: true
 
+⚠️ **Prerequisite Note:** To use the GenAI model, you **must** specify your MHS (My HCL Software) license parameters in the `values.yaml` file. If these parameters are omitted, the GenAI model does not function.
+
+Add your MHS details to your `values.yaml` configuration:
+
+	license:
+  	  # Url of MHS license server
+      licenseServerUrl: [https://api.hcltechsw.com](https://api.hcltechsw.com)                            
+	  # Key of Deployment on MHS license server
+      licenseServerKey: "<your_mhs_license_server_key>"
+ 
+
+
+**Webhook payload limits**
+
+To prevent oversized payloads from disrupting API gateway availability, a maximum request body limit is enforced at the gateway entry point. 
+
+By default, the maximum webhook payload size is capped at **700 KB** (716,800 bytes). If an incoming request exceeds this limit, the gateway rejects it immediately with an **HTTP 413 Payload Too Large** status code and a clean, sanitized JSON error.
+
+Although this parameter is not explicitly defined in the default `values.yaml` file, you can customize this limit by appending the following configuration to your custom override deployment file:
+
+	uno:
+     config:
+       webhook:
+         # Specifies the maximum size of a webhook request body in bytes.
+         # Default: 716800 (700 KB)
+         max-size.bytes: 716800
+
+⚠️**Important**: This limit is strictly dependent on your Kafka configuration. Ensure that the value of webhook.max-size.bytes does not exceed the maximum message size (max.request.size) permitted by your Kafka broker.
+
+
 **UnoAIPilot**
 
 You can enable UnoAIPilot by configuring the **values.yaml** file as follows: 
 		
 		global.enableUnoAIPilot: true
   
-
+  
 **Agentic AI Builder**
-
 
 You can enable AgenticBuilder by configuring the **values.yaml** file as follows: 
 		
 		global.enableAgenticAIBuilder: true
   
-
 
 **Session timeout**
 
@@ -431,7 +471,6 @@ To enable the log out option, set the following parameter in the **values.yaml**
 
      uno.config.console.enableLogout: true
 
-
 **Justifications**
 
 The administrator can enable justifications so that users are prompted to provide information when saving or performing changes to items in the environment. To enable justifications, set the following parameter in the **values.yaml** file of the Helm chart to true:
@@ -444,7 +483,7 @@ You can configure different justification levels by setting the related paramete
      uno.config.engine.justificationTicketNumberRequire: true
      uno.config.engine.justificationDescriptionRequired: true
 
-For more information about justifications, see [Keeping track of changes in your environment](https://help.hcl-software.com/UnO/v2.1.3/Deployment/justifications.html).
+For more information about justifications, see [Keeping track of changes in your environment](https://help.hcl-software.com/UnO/ContinuousDelivery/Deployment/justifications.html).
 
 **Encryption**
 
@@ -461,15 +500,47 @@ You can change the name of the default administrative user modifying the paramet
 
 Check the **values.yaml** file for more customization options.
 
+
+### Verifying container images with Cosign
+
+Use Cosign to verify the image signature. The supported versions are 3.x (3.0.0 or later) and 1.x (1.13.0 or later).  
+To verify the signature, run the following command:  
+
+`cosign verify --key HCL_Universal_Orchestrator_key.pub image-name:release-version` 
+
+  
+Where:  
+
+-   `--key HCL_Universal_Orchestrator_key.pub` is the public key provided.  
+    
+-   `image-name` is the name of the image.  
+    
+-   `release-version` is the release version target.  
+    
+
+  
+This is an output example:  
+  
+```
+cosign verify --key HCL_Universal_Orchestrator_key.pub hclcr.io/uno/hcl-uno-audit:2.1.5.0  
+  
+Verification for hclcr.io/uno/hcl-uno-audit:2.1.5.0 --  
+The following checks were performed on each of these signatures:  
+- The cosign claims were validated  
+- The signatures were verified against the specified public key  
+  
+[{"critical":{"identity":{"docker-reference":"hclcr.io/uno/hcl-uno-audit"},"image":{"docker-manifest-digest":"sha256:310ef58ca404429fecb5ebd4b21dc16635de14d84127070a496d7f3313945b9d"},"type":"cosign container image signature"},"optional":null}]
+```
+
+
 ### Security and verification for OCLI and UnO agent binaries 
 
-To ensure the integrity and authenticity of the downloaded files, we use GPG (GNU Privacy Guard) encryption. You must have the GPG tool installed on your system to decrypt and verify the files. 
+To ensure the integrity and authenticity of the downloaded files, we use GPG (GNU Privacy Guard) and RPM  encryptions. You must have either the GPG tool or RPM tool installed in your system to decrypt and verify the files.
 
 The Orchestration CLI and HCL UnO agent packages are signed with our private key. A corresponding .asc signature file accompanies the downloadable file. You can extract the file and use the public key to decrypt and verify the files.
 
-Importing the GPG Public Key
-
-1.  Import the HCL public GPG key using the following command:
+Method 1: Using GPG (Generic File Verification) for .gpg files
+ 1.  Import the HCL Universal Orchestrator public key using the following command:
 
     ```bash
     gpg --import path-to-gpg-public-key
@@ -484,9 +555,7 @@ Importing the GPG Public Key
     gpg:                 imported: 1
     ```
 
-Verifying the OCLI File
-
-2.  Verify the OCLI file's signature using the following command:
+ 2.  Verify the OCLI file's signature using the following command:
 
     ```bash
     gpg --verify path-to-OCLI-file
@@ -507,9 +576,21 @@ Verifying the OCLI File
 
 For more information on verifying a file with gpg keys, see [GnuPG documentation](https://www.gnupg.org/gph/en/manual.html). 
 
+Method 2: Using RPM (System Package Verification) for .rpm files
+ 1. Import the HCL Universal Orchestrator public key
+ 
+    ```bash
+    sudo rpm --import <path-to-gpg-public-key>
+    ```
+ 2. Verify the OCLI file's signature using the following command:
+ 
+    ```bash
+    rpm -K <path-to-OCLI-file>
+    ```
 When you decrypt the files with the public key and if the signature is valid, you can see a message indicating the file is correctly signed and the key ID matches with the public key. If the signature is invalid, you can see an error message, means the file is corrupted. 
 
 By verifying the file, you can ensure that it is not tampered during the download and can confirm the file is genuinely valid. You can download the public key from [here](https://github.com/HCL-TECH-SOFTWARE/hcl-universal-orchestrator-chart/blob/main/HCL_Universal_Orchestrator_public_key.gpg).
+
 
 ### Verifying the deployment 
 
@@ -598,6 +679,8 @@ To use custom certificates:
         
 If you define custom certificates, you are in charge of keeping them up to date, therefore, ensure you check their duration and plan to rotate them as necessary. To rotate custom certificates, delete the previous secret and upload a new secret, containing new certificates. The pod restarts automatically and the new certificates are applied.
 
+**Note:** Deploying HCL Universal Orchestrator with custom certificates might cause errors if you do not set the DNS aliases correctly. To avoid this, ensure you set the **disableHostnameVerification** attribute in the **values.yaml** to `true`.
+
 When using custom certificates make sure to update the following fields:
 		
 			uno.hclaipilot.certificates.useCustomizedCert: true
@@ -607,7 +690,6 @@ When using custom certificates make sure to update the following fields:
 			uno.hclaipilot.rag.certificates.useCustomizedCert: true
 			uno.hclaipilot.rag.certificates.caPairSecretName: <the secret name of the CA you want to use to sign the certificate created by default>
 			uno.hclaipilot.rag.certificates.certSecretName: <the name of the custom certificate you want to use>
-	
             
 			uno.agenticAIBuilder.certificates.useCustomizedCert: true
             uno.agenticAIBuilder.certificates.caPairSecretName: <the secret name of the CA you want to use to sign the certificate created by default>
@@ -621,7 +703,7 @@ HCL Universal Orchestrator uses Grafana to display performance data related to t
 
 The following metrics are collected and available to be visualized in the preconfigured Grafana dashboard. The dashboard is named **<uno_namespace> <uno_release_name>**:
 
-For a list of metrics exposed by HCL Universal Orchestrator, see [Exposing metrics to monitor your workload](https://help.hcl-software.com/UnO/v2.1.3/Monitoring/awsrgmonprom.html).
+For a list of metrics exposed by HCL Universal Orchestrator, see [Exposing metrics to monitor your workload](https://help.hcl-software.com/UnO/ContinuousDelivery/Monitoring/awsrgmonprom.html).
   
   ### Setting the Grafana service
 Before you set the Grafana service, ensure that you have already installed Grafana and Prometheus on your cluster. For information about deploying Grafana see [Install Grafana](https://github.com/helm/charts/blob/master/stable/grafana/README.md). For information about deploying the open-source Prometheus project see [Download Prometheus](https://github.com/helm/charts/tree/master/stable/prometheus).
@@ -683,7 +765,15 @@ To ensure a user can import, export, or delete the custom knowledge base, they m
 
 ## Documentation
 
-To access the complete product documentation library for HCL Universal Orchestrator, see [HCL Universal Orchestrator documentation](https://help.hcl-software.com/UnO/v2.1.3/index.html).
+To access the complete product documentation library for HCL Universal Orchestrator, see [HCL Universal Orchestrator documentation](https://help.hcl-software.com/UnO/ContinuousDelivery/index.html).
+
+
+
+
+
+
+
+
 
 
 

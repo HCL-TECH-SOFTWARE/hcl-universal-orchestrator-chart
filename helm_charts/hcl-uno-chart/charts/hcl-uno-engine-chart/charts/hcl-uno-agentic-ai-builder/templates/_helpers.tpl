@@ -103,9 +103,9 @@ Create image name as "repository-name:tag".
 
 {{- $dict := dict "globalRegistry" "" -}}
 {{- if eq $root.Values.global.hclImageRegistry "hclcr.io/sofy" -}}
-  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno" -}}
+  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno-ea" -}}
 {{- else if eq $root.Values.global.hclImageRegistry "hclcr.io" -}}
-  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno" -}}
+  {{- $_ := set $dict "globalRegistry" "hclcr.io/uno-ea" -}}
 {{- else if eq $root.Values.global.hclImageRegistry "gcr.io/blackjack-209019" -}}
   {{- $_ := set $dict "globalRegistry" "gcr.io/blackjack-209019/services/uno" -}}
 {{- else if $root.Values.global.hclImageRegistry -}}
@@ -177,16 +177,72 @@ livenessProbe:
 {{- end}}
 
 {{/*
+Return "true" when the autoscaler (HPA) is enabled for a given service, otherwise empty string.
+Usage: include "agenticbuilder.autoscaler.enabled" (list $root $serviceAutoscalerValues)
+  - $root                  : the root context (.)
+  - $serviceAutoscalerValues : the .autoscaler block for the specific service (may be nil)
+Precedence: service-level enabled (if non-nil) > common-level enabled > false
+*/}}
+{{- define "agenticbuilder.autoscaler.enabled" -}}
+{{- $root := index . 0 -}}
+{{- $svcAutoscaler := index . 1 -}}
+{{- $enabled := false -}}
+{{- if and $root.Values.common $root.Values.common.autoscaler (hasKey $root.Values.common.autoscaler "enabled") -}}
+  {{- $enabled = $root.Values.common.autoscaler.enabled -}}
+{{- end -}}
+{{- if and $svcAutoscaler (hasKey $svcAutoscaler "enabled") (ne $svcAutoscaler.enabled nil) -}}
+  {{- $enabled = $svcAutoscaler.enabled -}}
+{{- end -}}
+{{- if $enabled -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+Return "true" when PodDisruptionBudget is enabled for a given service, otherwise empty string.
+Usage: include "agenticbuilder.pdb.enabled" (list $root $servicePdbValues)
+  - $root            : the root context (.)
+  - $servicePdbValues: the .podDisruptionBudget block for the specific service (may be nil)
+Precedence: service-level enabled (if non-nil) > common-level enabled > false
+*/}}
+{{- define "agenticbuilder.pdb.enabled" -}}
+{{- $root := index . 0 -}}
+{{- $svcPdb := index . 1 -}}
+{{- $enabled := false -}}
+{{- if and $root.Values.common $root.Values.common.podDisruptionBudget (hasKey $root.Values.common.podDisruptionBudget "enabled") -}}
+  {{- $enabled = $root.Values.common.podDisruptionBudget.enabled -}}
+{{- end -}}
+{{- if and $svcPdb (hasKey $svcPdb "enabled") (ne $svcPdb.enabled nil) -}}
+  {{- $enabled = $svcPdb.enabled -}}
+{{- end -}}
+{{- if $enabled -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+Return the resolved multitenancy-enabled value as a string ("true" or "false").
+Precedence: common.config.enableMultitenancy (if non-nil) > global.enableMultitenant > false
+Usage: include "agenticbuilder.multitenancy.enabled" .
+*/}}
+{{- define "agenticbuilder.multitenancy.enabled" -}}
+{{- $enabled := .Values.global.enableMultitenant | default false -}}
+{{- printf "%v" $enabled -}}
+{{- end -}}
+
+{{/*
 Define the resources if found on the container values
 */}}
 {{- define "agenticbuilder.resources" -}}
-{{- if .resources -}}
+{{- $root := index . 0 -}}
+{{- $serviceName := index . 1 -}}
+{{- $service := index . 2 -}}
+{{- $resources := coalesce $service.resources $root.Values.common.resources -}}
+{{- $limits := coalesce $resources.limits $resources.limit -}}
+{{- $requests := coalesce $resources.requests $resources.requested -}}
+{{- if $resources -}}
 resources:
-  {{- if .resources.limits }}
-  limits: {{ include "agenticbuilder.resource.check" .resources.limits | indent 6}}
+  {{- if $limits }}
+  limits: {{ include "agenticbuilder.resource.check" $limits | indent 6}}
   {{- end -}}
-  {{- if .resources.requests }}
-  requests: {{ include "agenticbuilder.resource.check" .resources.requests | indent 6}}
+  {{- if $requests }}
+  requests: {{ include "agenticbuilder.resource.check" $requests | indent 6}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -252,6 +308,12 @@ true
 {{- end }}
 {{- $key := last $baseParts -}}
 {{- index $parentMap $key -}}
+{{- end -}}
+
+
+{{- define "agenticbuilder.jwt.cert.name" -}}
+{{ $fullname := include "agenticbuilder.fullname" . }}
+{{- printf "%s-%s"  $fullname "ab-jwt" -}}
 {{- end -}}
 
 
@@ -435,7 +497,15 @@ true
 {{- end -}}
 
 {{- define "agenticbuilder.env.postgres.password" -}}
+{{- if or ( .Values.common.postgres.postgresPassword) (and ( .Values.common.postgres.postgresPasswordSecretName) ( .Values.common.postgres.postgresPasswordSecretKey)) }}
 {{ include "agenticbuilder.env.valueOrSecret" (list . "POSTGRES_PASSWORD" "common.postgres.postgresPassword") }}
+{{- else }}
+- name: POSTGRES_PASSWORD
+  valueFrom: 
+    secretKeyRef:
+      name: {{ printf "%s-postgres-password" .Release.Name | trunc 63 | trimSuffix "-" }}
+      key: postgres-password
+{{- end }}
 {{ include "agenticbuilder.postgres.database.url.env" . }}
 {{- end -}}
 
@@ -459,6 +529,8 @@ true
 {{- define "agenticbuilder.env.postgres.adminpassword" -}}
 {{- include "agenticbuilder.env.valueOrSecret" (list . "POSTGRES_ADMIN_USER" "common.postgres.postgresAdminUser") }}
 {{ include "agenticbuilder.env.valueOrSecret" (list . "POSTGRES_ADMIN_PASSWORD" "common.postgres.postgresAdminPassword") }}
+- name: POSTGRES_ADMIN_SESSION_DB
+  value: {{ tpl (.Values.common.postgres.postgresAdminSessionDB | default "postgres") . | quote }}
 {{- end -}}
 
 {{- define "agenticbuilder.env.valkey.password" -}}
@@ -480,15 +552,24 @@ true
 {{- end -}}
 
 {{- define "agenticbuilder.pull.secret" -}}
+{{- $secrets := list -}}
+
+{{- if .Values.global.hclImagePullSecret }}
+{{- $secrets = append $secrets (tpl .Values.global.hclImagePullSecret .) -}}
+{{- end }}
+
+{{- if .Values.additionalPullSecret }}
+{{- $secrets = append $secrets (tpl .Values.additionalPullSecret .) -}}
+{{- end }}
+
+{{- $secrets = append $secrets (printf "sa-%s" .Release.Namespace) -}}
+{{- $secrets = append $secrets "sa-uno" -}}
+
+{{- $unique := uniq $secrets -}}
 imagePullSecrets:
-  {{- if .Values.global.hclImagePullSecret  }}
-    - name: {{ tpl .Values.global.hclImagePullSecret .}}
-  {{- end }}
-  {{- if .Values.additionalPullSecret }}
-    - name: {{ tpl .Values.additionalPullSecret . }}
-  {{- end }}
-    - name: sa-{{ .Release.Namespace }}
-    - name: sa-uno
+{{- range $unique }}
+  - name: {{ . }}
+{{- end }}
 {{- end -}}
 
 {{- define "agenticbuilder.postgres.client.volume" -}}
@@ -507,13 +588,15 @@ imagePullSecrets:
 {{- if .Values.common.postgres.initDatabases -}}
 initContainers:
   - name: init-wait-for-postgres
-    image: busybox
+    image: {{ tpl .Values.image.init.busybox . | default "busybox:latest" | quote }}
     env:
       - name: POSTGRES_HOST
         value: {{ tpl .Values.common.postgres.postgresService . | quote }}
-    command: ['sh', '-c', 'until nc -z $POSTGRES_HOST:5432; do echo waiting for $POSTGRES_HOST:5432; sleep 30; done;']
+      - name: POSTGRES_PORT
+        value: {{ tpl .Values.common.postgres.postgresPort . | quote }}
+    command: ['sh', '-c', 'until nc -z "$POSTGRES_HOST" "$POSTGRES_PORT"; do echo waiting for $POSTGRES_HOST:$POSTGRES_PORT; sleep 30; done;']
   - name: init-create-postgres-user
-    image: postgres:latest
+    image: {{ tpl .Values.image.init.postgres . | default "postgres:latest" | quote }}
     volumeMounts:
 {{- include "agenticbuilder.commonssl.volumeMounts.postgres" . | nindent 4 }}
     env:
@@ -525,13 +608,16 @@ initContainers:
       - sh
       - -c
       - |
-        if ! PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $POSTGRES_HOST -U $POSTGRES_ADMIN_USER -tAc "SELECT 1 FROM pg_roles WHERE rolname='$POSTGRES_USER'" | grep -q 1; then
-          PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $POSTGRES_HOST -U $POSTGRES_ADMIN_USER -c "CREATE USER \"$POSTGRES_USER\" WITH PASSWORD '$POSTGRES_PASSWORD';"
+        set -e
+        if ! PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_ADMIN_USER" -d "$POSTGRES_ADMIN_SESSION_DB" -tAc "SELECT 1 FROM pg_roles WHERE rolname='$POSTGRES_USER'" | grep -q 1; then
+          PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_ADMIN_USER" -d "$POSTGRES_ADMIN_SESSION_DB" -c "CREATE USER \"$POSTGRES_USER\" WITH PASSWORD '$POSTGRES_PASSWORD';"
         else
           echo "User $POSTGRES_USER already exists"
         fi
+        # Always grant membership so the admin can act on behalf of the user in the next step
+        PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_ADMIN_USER" -d "$POSTGRES_ADMIN_SESSION_DB" -c "GRANT \"$POSTGRES_USER\" TO \"$POSTGRES_ADMIN_USER\";"
   - name: init-create-postgres-db
-    image: postgres:latest
+    image: {{ tpl .Values.image.init.postgres . | default "postgres:latest" | quote }}
     volumeMounts:
 {{- include "agenticbuilder.commonssl.volumeMounts.postgres" . | nindent 4 }}
     env:
@@ -542,12 +628,16 @@ initContainers:
       - sh
       - -c
       - |
-        if ! PGPORT=5432 PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $POSTGRES_HOST -U $POSTGRES_ADMIN_USER -lqt | cut -d '|' -f 1 | grep -qw $POSTGRES_DB; then
-          PGPORT=5432 PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $POSTGRES_HOST -U $POSTGRES_ADMIN_USER -c "CREATE DATABASE $POSTGRES_DB WITH OWNER \"$POSTGRES_USER\" ENCODING=UTF8 TEMPLATE=template0;"
+        set -e
+        if ! PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_ADMIN_USER" -d "$POSTGRES_ADMIN_SESSION_DB" -tAc "SELECT 1 FROM pg_database WHERE datname='$POSTGRES_DB'" | grep -q 1; then
+          PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_ADMIN_USER" -d "$POSTGRES_ADMIN_SESSION_DB" -c "CREATE DATABASE $POSTGRES_DB WITH OWNER \"$POSTGRES_USER\" ENCODING=UTF8 TEMPLATE=template0;"
         else
           echo "Database $POSTGRES_DB already exists with this user $POSTGRES_USER"
         fi
-        PGPORT=5432 PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql "host=$POSTGRES_HOST user=$POSTGRES_ADMIN_USER dbname=$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        # Enforce the correct owner every time
+        PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_ADMIN_USER" -d "$POSTGRES_ADMIN_SESSION_DB" -c "ALTER DATABASE $POSTGRES_DB OWNER TO \"$POSTGRES_USER\";"
+        # Enable pgvector extension 
+        PGPORT=$POSTGRES_PORT PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql "host=$POSTGRES_HOST port=$POSTGRES_PORT user=$POSTGRES_ADMIN_USER dbname=$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
       {{- end }}
 {{- end -}}
 
@@ -629,6 +719,20 @@ initContainers:
     {{- fail "agenticAdditionalCASecrets must be a string or an object with secretName and secretKey" }}
   {{- end }}
 {{- end }}
+{{- end -}}
+
+{{- define "agenticbuilder.jwt.volume" -}}
+{{ $certName := include "agenticbuilder.jwt.cert.name" . }}
+- name: {{ tpl $certName . }}-cert-vol
+  secret:
+    defaultMode: 0664
+    secretName: {{ tpl $certName . | quote }}
+{{- end -}}
+
+{{- define "agenticbuilder.jwt.volumeMounts" -}}
+{{ $certName := include "agenticbuilder.jwt.cert.name" . }}
+- name: {{ tpl $certName .}}-cert-vol
+  mountPath: /jwt/agenticbuilder/
 {{- end -}}
 
 {{- define "agenticbuilder.additionalCAs.volumeMounts" -}}
@@ -761,6 +865,49 @@ initContainers:
 
 {{- define "common.postgres.fullname" -}}
 {{- printf "%s-pg-db" .Release.Name | trunc 21 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Inject standard Kubernetes chart/release metadata as environment variables using the Downward API.
+Usage: include "agenticbuilder.k8s.metadata.env" .
+Produces:
+  K8S_NAMESPACE        — pod's namespace (Downward API)
+  K8S_POD_NAME         — pod's name (Downward API)
+  K8S_POD_IP           — pod's IP (Downward API)
+  K8S_NODE_NAME        — node name (Downward API)
+  K8S_RELEASE_NAME     — Helm release name
+  K8S_RELEASE_VERSION  — Helm release revision number
+  K8S_CHART_NAME       — chart name
+  K8S_CHART_VERSION    — chart version
+  K8S_APP_VERSION      — chart appVersion
+*/}}
+{{- define "agenticbuilder.k8s.metadata.env" -}}
+- name: K8S_NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
+- name: K8S_POD_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: K8S_POD_IP
+  valueFrom:
+    fieldRef:
+      fieldPath: status.podIP
+- name: K8S_NODE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+- name: K8S_RELEASE_NAME
+  value: {{ .Release.Name | quote }}
+- name: K8S_RELEASE_VERSION
+  value: {{ .Release.Revision | quote }}
+- name: K8S_CHART_NAME
+  value: {{ .Chart.Name | quote }}
+- name: K8S_CHART_VERSION
+  value: {{ .Chart.Version | quote }}
+- name: K8S_APP_VERSION
+  value: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 
 {{- define "agenticbuilder.sofy.env.variables" -}}

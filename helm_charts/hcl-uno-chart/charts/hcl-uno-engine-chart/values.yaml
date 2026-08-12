@@ -16,13 +16,13 @@ global:
   # configPlugins is the ConfigMap containing list of plugin to be installed.
   configPlugins: 
   # pluginImageRepository is the name of the repository that contains the image with tags for Automation Hub integrations.
-  pluginImageRepository: hclcr.io/wa
+  pluginImageRepository: hclcr.io/uno-ea
   # pluginImageName is the name of the image with tags for Automation Hub integrations.
-  pluginImageName: hcl-uno-automation-plugins:2.1.4.0-beta2
+  pluginImageName: hcl-uno-automation-plugins:2.1.7.0-beta1
   # extraImages is the list of images with tags containing OCLI and agent for download from engine.
   extraImages:
-    - registry: hclcr.io/uno
-      name: hcl-uno-external-pod:2.1.4.0-beta2
+    - registry: hclcr.io/uno-ea
+      name: hcl-uno-external-pod:2.1.7.0-beta1
   customLabels:
     - name: "environment"
       value: "prod"
@@ -34,6 +34,8 @@ global:
   #enableTestPrereq: true
   enableUnoAIPilot: false
   enableAgenticAIBuilder: false
+  # Will enable the multi-tenant support only in the UNO instance and in the Agentic AI Builder. Supported values are true and false.
+  enableMultitenant: false
   postgres:
     usePercona: true
   # deploymentType specifies the type of deployment. Supported values are full and aio. The full deployment includes all microservices as single pod, while the aio deployment include all the microservices deployed as a single pod.
@@ -44,6 +46,8 @@ global:
   # This is only used in case internal genai service
   cloudCredentials:
     gcp:
+      # Location for Vertex AI models (e.g., global, us, eu, us-central1, europe-west1, ...)
+      location:
       # gcp is the GCP service account key in JSON format. Replace the value with your GCP service account file content encoded in base64.
       serviceFile:
       # gcpProjectId is the GCP project ID. Replace the value with your GCP project ID.
@@ -81,6 +85,10 @@ global:
       # bearerToken is the bearer token for authentication (used when authType=bearer).
       bearerToken:
 # nameOverride changes the resources names. By default, the release name is used.
+  # Used by Agenticbuilder as a global variable to set the current deplloyment type as multitenancy
+  # To be used in the future also in the UnO as a common variable to set the deployment type
+  #tenant:
+  #  enabled: false
 nameOverride: ""
 
 database:
@@ -94,6 +102,8 @@ database:
   username: 
   # password is the password of the database user. Mandatory parameter.
   password:
+  # authenticationDatabase is the database to authenticate against. It is used only for MongoDB and the default value is "admin".
+  authenticationDatabase: 
   # tls specifies whether TLS is enabled. Supported values are true and false.
   tls: false
   # tlsInsecure specifies whether certificate validation must be skipped. Supported values are true and false.
@@ -104,6 +114,8 @@ database:
   databaseMaxPoolSize: 20
 
 kafka:
+  # if true kafka topics will be created /updated on start of UnO
+  configureTopicOnStart: true
   # url is the URL of the event streaming platform. Mandatory parameter.
   url: hcl-uno-kafka-0.kafka-headless.kafka.svc.cluster.local:9092
   # prefix of topic name
@@ -131,6 +143,9 @@ kafka:
   # topicReplicas is the number of replicas for the topic.
   topicReplicas: 1
 config:
+  aiChat:
+    # Specifies the connection timeout for the connection to the AI Chat service. The value is in seconds. The default value is 300 seconds.
+    timeout: 300
   serviceAccount:
     # use the serviceAccount.annotations to add annotations to serviceAccount.
     annotations:
@@ -155,6 +170,8 @@ config:
     enabled: false
     # commonTenantDatabaseName is the name of the database used for common tenant data.
     commonTenantDatabaseName: multitenant-common
+    # Optional whitelabel string to customize the tenant manager UI header
+    whitelabel:
     # tenantDbPrefix is the prefix used for tenant databases.
     tenantDbPrefix: uno-tenant-
     trial:
@@ -182,12 +199,18 @@ config:
     # token value per AI Agent call
     # 1 token = 8 ai agent calls
     tokenPerAIAgentCall: 0.125
-    # for internal use only
-    tenantMetricsEnabled: false
+    # Exposes metrics in a multi-tenant environment. When disabled, dashboards cannot display tenant-specific metrics. Supported values are 'true' and 'false'.
+    tenantMetricsEnabled: true
+    # the amount of time from last login on or after which users will not receive notification emails.
+    lastLoginForMailNotificationsDuration: P30D
     # the support email address or http(s) link to include in the tenant notification emails for trials. Optional.
     trialSupportLink: mailto:support@example.com
     # the support email address or http(s) link to include in the tenant notification emails for subscribed tenants. Optional.
     subscribedSupportLink: https://support.example.com
+    # Sends a notification email when a trial tenant is created. Optional.
+    eMailSendForTrial: true
+    # Sends a notification email when a subscribed tenant is created. Optional.
+    eMailSendForSubscribed: true
     # the name to include in the "from" field of the tenant notification emails. Optional.
     eMailSender: UnO SaaS
     # Custom subject for the email sent as notifications when a tenant is created. Optional.
@@ -214,6 +237,10 @@ config:
       #   </div>
       # </body>
       # </html>
+    # specified whether to also notify other recipients (for example, sales team) when a tenant is created or promoted. Supported values are true and false.
+    eMailOtherRecipientsEnabled: false
+    # comma separated list of email address to be notified when a tenant is created or promoted, used only if eMailOtherRecipientsEnabled is set to true.
+    eMailOtherRecipients: # mail@example.com,mail2@otherrecipient.com
     # For internal use only
     marketplace:
       # HCLSoftware is the configuration for the HCL Software marketplace.
@@ -224,6 +251,11 @@ config:
           username:
           password:
           topic:
+          provisioningActivityTopic:
+          groupId:
+          # Discard all messages created before startDate (in ISO 8601 format YYYY-MM-DDThh:mm:ssZ).
+          # The default value is null (no message discarded)
+          startDate:
         schemaRegistry:
           url:
           username:
@@ -246,6 +278,18 @@ config:
           clientId:
           # Client secret to access MHS services
           clientSecret:
+        Unica:
+          journey:
+            # Unique entry source code. Can be non-prod or prod one.
+            entrySourceCode:
+            # Url of the token endpoint for Unica Journey API
+            tokenUrl:
+            # Url of the Unica Journey API to send data of the trials created from marketplace (trial record pushing)
+            dataUrl:
+            # client id to generate an auth token from tokenUrl valid for calling dataUrl API
+            clientId:
+            # k8S secret name that contains client secret to generate an auth token from tokenUrl valid for calling dataUrl API
+            clientSecret:
         # license multiplier, used to calculate the license quantity with respect to the quantity coming from marketplace
         licenseMultiplier: 1
     # cert-manager certificate Issuer for tenant manager if not specified it uses the default one
@@ -263,6 +307,18 @@ config:
       # If at least a filter is specified, Users that has at least one group in groupIds will also need to have a user ID matching at least one of the filters.
       userIdFilters:
       # - .*@example.com
+    viewers:
+      # List of user IDs that are authorized as tenant viewers
+      userIds:
+      # - unoSaaSViewer@example.com
+      # List of group IDs that are authorized as tenant viewers
+      groupIds:
+      # - SaaSViewers
+      # A list of user ID regex patterns to further filter user IDs. 
+      # This is used in conjunction to groupIds.
+      # If at least a filter is specified, Users that has at least one group in groupIds will also need to have a user ID matching at least one of the filters.
+      userIdFilters:
+      # - .*@example.com
     justification:
       # justificationCategoryRequired specifies whether the justification category is mandatory for tenants. Supported values are true and false.
       justificationCategoryRequired: false
@@ -275,11 +331,11 @@ config:
 
   registry:
     # name is the name of your registry.
-    name:  hclcr.io/uno
+    name:  hclcr.io/uno-ea
     # pullPolicy defines when data is pulled from your event streaming platform. Supported values are Always, Never, IfNotPresent.
     pullPolicy: Always
     # tag is the tag of the image. The default value is latest.
-    tag: 2.1.4.0-beta2
+    tag: 2.1.7.0-beta1
   orchestrator:
     # Specifies for how long the Task Run History is retained (in ISO 8601 format, e.g., P400D).
     jobRunHistoryRetentionDuration: P400DT0H
@@ -287,6 +343,11 @@ config:
     maxNestingLevel: 50
     # the time windows, in seconds, that permits the user to cancel the completion of a human task
     humanTaskCancelWindowSeconds: 20
+    # frequency to count consumed jobs for license tracking (in ISO 8601 format)
+    countConsumedJobsFrequency: PT90M
+  mcpServer:
+    # response timeout in seconds for MCP requests
+    responseTimeoutSeconds: 300
   planning:
     # max number of days to generate not active instance
     notActiveWindowMax: P9DT0H
@@ -302,6 +363,13 @@ config:
     daysRetentionFailPlan: P30DT0H
     # Frequency to remove the past failed jobs
     frequencyFailJobCleanUp: PT1H
+  executor:
+    # how long tasks executed from the CLOUD executor (and related job logs) are retained in DB. This applies to tasks in final status.
+    # minimum value is 7 days (lower value will be ignored)
+    taskRetentionDays: P15D
+    # cloudExecutorBlockedPlugin is a comma-separated list of plugin types that are blocked from execution on the cloud agent.
+    # This maps to the quarkus property uno.cloud.task.launcher.not.supported.job.types.
+    cloudExecutorBlockedPlugin:
   endpoints:
     monitor:
       frequency:
@@ -345,23 +413,68 @@ config:
     internal: false
 
     # Below information are only used if the genai service is internal deployment.
-    # Gemini model used for AI Pilot. This is also the default model used for AI Agents. It must be a Gemini model.
-    defaultVertexAiModel: gemini-2.5-flash-lite
     # timeout is the timeout for the GenAI service requests.
     timeout:
-    # These models may take up to 5 minutes to reflect in the other services.
 
-    agentModels:
-      # Model names that work with GenAI service for AI Agents from vertex-ai
-      vertexAiModels:
-      # Model names that work with GenAI service for AI Agents from open ai
-      openAiModels:
-      # Model names that work with GenAI service for AI Agents from bedrock
-      bedrockModels:
-      # Model names that work with GenAI service for AI Agents from ollama
-      ollamaModels:
-    # The model used for internal agents (e.g. to create workflow). It must be one of the models specified in agentModels. If not specified, the defaultVertexAiModel is used.
-    internalAgentsModel:
+    # Unified GenAI configuration structure for engine with internal GenAI
+    # Configuration must be provided via values override
+    
+    # Validation configuration
+    validation:
+      # For engine deployments with internal GenAI, validation can be enabled
+      failOnMissingCosts: false
+    
+    # Provider configuration (must be provided)
+    providers:
+      vertexai:
+        models: []
+        activeModels: []
+      
+      openai:
+        models: []
+        activeModels: []
+      
+      azure:
+        models: []
+        activeModels: []
+      
+      bedrock:
+        models: []
+        activeModels: []
+      
+      ollama:
+        models: []
+        activeModels: []
+    
+    # Default model for AI Agents (must be provided)
+    defaultModel:
+    
+    # Service configuration with estimated tokens (must be provided)
+    serviceConfig:
+      ai_agent:
+        model:
+        estimatedInputTokens:
+        estimatedOutputTokens:
+      
+      create_workflow:
+        model:
+        estimatedInputTokens:
+        estimatedOutputTokens:
+      
+      rag:
+        model:
+        estimatedInputTokens:
+        estimatedOutputTokens:
+      
+      generate_jsonata:
+        model:
+        estimatedInputTokens:
+        estimatedOutputTokens:
+      
+      generate_dashboard_oql_query:
+        model:
+        estimatedInputTokens:
+        estimatedOutputTokens:
 
   engine:
     # allowed_referer specifies the allowed referer for the engine and console in case of Invalid Referer.
@@ -402,6 +515,8 @@ config:
     console: #https://console.example.com
     # endpoint where the gateway is exposed.
     gateway: #https://gateway.example.com
+    # endpoint where the agentmanager is exposed. For non multi-tenant deployment only.
+    agentmanager: #https://agentmanager.example.com
 
   encryption:
     # The password or key to encrypt data, such as passwords, agent database, and kafka messages.
@@ -453,6 +568,8 @@ config:
     apikeyPersonalExpirationDuration: P365D
     # apikeyServiceExpirationDuration is the amount of time on or after which the Service API Keys expire. It is calculated starting from API Key creation.
     apikeyServiceExpirationDuration: P365D
+    # apikeyCrossDependenciesExpirationDuration is the amount of time on or after which the Cross Dependencies API Keys expire. It is calculated starting from API Key creation.
+    apikeyCrossDependenciesExpirationDuration: P365D
     # groupsCacheExpirationDuration is the amount of time on or after which users must login again to the authentication provider to use Personal API Keys.
     groupsCacheExpirationDuration: P30D
     # cleanupFrequencyForPending indicates how often the IAA service checks in the database for API Keys whose token has not been created after the cleanupFrequencyForPending timeout has expired.
@@ -614,10 +731,12 @@ deployment:
         initialDelaySeconds: 15
         periodSeconds: 5
         failureThreshold: 40
+        timeoutSeconds: 5
       liveness:
         initialDelaySeconds: 60
         periodSeconds: 10
         failureThreshold: 3    # Tight threshold for quick recovery
+        timeoutSeconds: 5
   # The properties listed below apply to single microservices. You can use them to override the global settings defined above for one or more microservices.
   console:
     # ingressPrefix is the prefix of the name of the endpoint of the console microservice.
@@ -689,6 +808,7 @@ deployment:
     maxTargetReplicas: 2
     # the database name used by tenant manager
     databaseName: "tenantmanager-db"
+
 agenticAIBuilder:
   telemetry:
     # To enable telemetry
@@ -717,8 +837,54 @@ agenticAIBuilder:
     telemetryExporterHeaders: ""
     # Timeout in milliseconds for the telemetry exporter
     telemetryExporterTimeoutMillis: "10000"
+    # If your trace exporter requires different headers than metrics, provide them here in the format "key1=value1,key2=value2"
+    telemetryExporterTraceHeaders: ""
+    # Optional Langfuse credentials for OTLP trace export. Prefer the SecretName/SecretKey form for production.
+    # Langfuse Public Key (used for trace export)
+    langfusePublicKey: ""
+    # Optional Secret reference for Langfuse Public Key (used if langfusePublicKey is not set)
+    langfusePublicKeySecretName: ""
+    # Optional Secret key for Langfuse Public Key (default: "public-key")
+    langfusePublicKeySecretKey: "public-key"
+    # Langfuse Secret Key (used for trace export)
+    langfuseSecretKey: ""
+    # Optional Secret reference for Langfuse Secret Key (used if langfuseSecretKey is not set)
+    langfuseSecretKeySecretName: ""
+    # Optional Secret key for Langfuse Secret Key (default: "secret-key")
+    langfuseSecretKeySecretKey: "secret-key"
   
   common:
+    autoscaler:
+      enabled: false
+      # minTargetReplicas defines the minimum number of pod replicas for each service.
+      # IMPORTANT: This value is used as:
+      #   1. The default/static replica count when HPA is disabled (no autoscaling)
+      #   2. The minimum replica count when HPA is enabled (HPA won't scale below this)
+      # The deployment replicas field is set to this value by default.
+      # To override per service, set minTargetReplicas in the service-specific section (e.g., ams.autoscaler.minTargetReplicas)
+      minTargetReplicas: 1
+      # maxTargetReplicas defines the maximum number of pod replicas for each service.
+      # Used only when HPA is enabled. When HPA is disabled, replicas stay at minTargetReplicas (static).
+      # To override per service, set maxTargetReplicas in the service-specific section (e.g., ams.autoscaler.maxTargetReplicas)
+      maxTargetReplicas: 3
+      # cpuAverageUtilization triggers autoscaler when average CPU usage exceeds this percentage.
+      # Only applies when HPA is enabled.
+      cpuAverageUtilization: 200
+      # Pod Disruption Budget Configuration
+    podDisruptionBudget:
+      # enabled specifies whether a PodDisruptionBudget is enabled. Supported values are true and false.
+      enabled: false
+      # maxUnavailable is the maximum number, or percentage, of unavailable pods during the disruption.
+      maxUnavailable: "33%"
+    # Resource Configuration for all services, can be overridden at the service level
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2500Mi
+      requests:
+        cpu: 300m
+        memory: 500Mi
+
     truststore:
       agenticAdditionalCASecrets: 
         - "uno-certificate"
@@ -764,6 +930,16 @@ agenticAIBuilder:
       valkeyDb: "0"
       # Username To be used to connect to Valkey service.
       valkeyUser:
+      # IAM Authentication Configuration for Valkey connection
+      valkeyIAMAuthenticationEnabled: "false"
+      # GCP Service Account to be used for IAM Authentication, only used if valkeyIAMAuthenticationEnabled is set to "true"
+      valkeyIAMServiceAccount: ""
+      # The scopes to be used for IAM Authentication, only used if valkeyIAMAuthenticationEnabled is set to "true"
+      valkeyIAMScopes: "https://www.googleapis.com/auth/cloud-platform"
+      #Prefix used to namespace all the keys in Valkey, you can use it to avoid key collisions with other applications using the same Valkey instance. This is especially useful when valkeyClusterModeEnabled is set to "true" to avoid collisions between different clusters using the same Valkey instance. 
+      valkeyApplicationPrefix: "agenticbuilder"
+      #To enable the client connection to Valkey to use the Valkey Cluster mode, set valkeyClusterModeEnabled to "true". When valkeyClusterModeEnabled is set to "true", the client will connect to the Valkey cluster using the valkeyClusterPrefix as the prefix for the cluster nodes
+      valkeyClusterModeEnabled: "false"
       #SSL Configuration for Valkey connection
       ssl:
         enabled: "false"
@@ -817,6 +993,8 @@ agenticAIBuilder:
       #### Those settings are for Creating The user and the database if not present ####
       # Those values will not be used by the application, only in the initContainer for the initialization of the DB #
       initDatabases: true
+      # The database to be used for the admin session, it should be a database that always exists in Postgres, such as "postgres" or "template1"
+      postgresAdminSessionDB: "postgres"
       postgresAdminUserSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
       postgresAdminUserSecretKey: "user"
       postgresAdminPasswordSecretName: '{{ printf "%s-%s" .Release.Name "pg-db" | trunc 21 | trimSuffix "-"  }}-pguser-postgres'
@@ -895,16 +1073,17 @@ agenticAIBuilder:
     proxyURL: ""
     # The port on which the core service will be exposed
     port: 8000
-    # The number of replicas for the core service
-    replicaCount: 1
+    # Autoscaler Configuration
+    autoscaler:
+      enabled: null
+      minTargetReplicas: null
+      maxTargetReplicas: null
+      cpuAverageUtilization: null
+    podDisruptionBudget:
+      enabled: null
+      maxUnavailable: null
     # Resource Configuration
-    resources:
-      limits:
-        cpu: 1000m
-        memory: 2500Mi
-      requests:
-        cpu: 300m
-        memory: 500Mi
+    resources: null
 
   ams:
     name: ams
@@ -913,8 +1092,15 @@ agenticAIBuilder:
     # The port on which the core service will be exposed
     port: 8080
     proxyURL: ""
-    # The number of replicas for the core service
-    replicaCount: 1
+    # Autoscaler Configuration
+    autoscaler:
+      enabled: null
+      minTargetReplicas: null
+      maxTargetReplicas: null
+      cpuAverageUtilization: null
+    podDisruptionBudget:
+      enabled: null
+      maxUnavailable: null
     # Resource Configuration
     resources:
       limits:
@@ -922,7 +1108,7 @@ agenticAIBuilder:
         memory: 2500Mi
       requests:
         cpu: 300m
-        memory: 500Mi
+        memory: 1200Mi
 
   runner:
     name: runner
@@ -931,42 +1117,52 @@ agenticAIBuilder:
     # The port on which the core service will be exposed
     port: 8080
     proxyURL: ""
-    # The number of replicas for the core service
-    replicaCount: 2
-    hpa:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 10
+    # Autoscaler Configuration - Runner always has minTargetReplicas: 2 (minimum 2 instances)
+    autoscaler:
+      enabled: null
+      minTargetReplicas: 2
+      maxTargetReplicas: null
+      cpuAverageUtilization: null
+    podDisruptionBudget:
+      enabled: null
+      maxUnavailable: null
     # Resource Configuration
     config:
       # The base URL of the UNO MCP service.
       unoMCPBaseURL : ""
       maxAgents: 5
-      resources:
-        limits:
-          cpu: 2
-          memory: 2560Mi
-        requests:
-          cpu: 500m
-          memory: 1638Mi
+    resources:
+      limits:
+        cpu: 2
+        memory: 2560Mi
+      requests:
+        cpu: 500m
+        memory: 1638Mi
   uno:
     hostname: "{{ include \"uno.fullname\" . }}-gateway"
+    port: "8443"
+    proxyURL: ""
+  iaa:
+    hostname: "{{ include \"uno.fullname\" . }}-iaa"
     port: "8443"
     proxyURL: ""
   image:
     # The registry where the image is hosted
     repository: hclcr.io/uno-ea
     # The tag of the images
-    tag: 2.1.4.0-beta2
+    tag: 2.1.7.0-beta1
     # The Pull Policy for the images
     imagePullPolicy: Always
+    init:
+      busybox: busybox:latest
+      postgres: postgres:latest
 
   additionalPullSecret : ""
 
 hclaipilot:  
   image:
     repository: hclcr.io/uno-ea
-    tag: 2.1.4.0-beta2
+    tag: 2.1.7.0-beta1
   
   channels:
     slackToken: ""
@@ -1124,11 +1320,11 @@ hclaipilot:
         memory: "1024Mi"  # Memory limit
       requests:
         cpu: "0.2"  # CPU request
-        memory: "256Mi"  # Memory request
+        memory: "950Mi"  # Memory request
 
     container:
       registry: hclcr.io/uno-ea # Image name
-      tag: 2.1.4.0-beta2  # Image tag
+      tag: 2.1.7.0-beta1  # Image tag
     authorization:
       # The URL of the OpenID Connect (OIDC) server for the RAG service to authenticate the jwt token
       oidcServerURL: "https://uno-keycloak-ssl:8843"
