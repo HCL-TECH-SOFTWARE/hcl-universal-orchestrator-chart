@@ -382,9 +382,11 @@ Follow the steps below to enable and set up a multitenant environment on HCL Uni
 
  4. Edit all the optional parameters of the `uno.config.multitenant` section according to your needs.
 
- 5. Optionally, in the `uno.config.multitenant.tenantManagerIngressCertIssuer` parameter, enter the secret name of the issuer of the certificate that you want to use.
+    **Note**: Customize `multitenant.commonTenantDatabaseName` and `multitenant.tenantDbPrefix` to align with your organization's naming standards before 		deploying.
 
- 6. After the deployment, you can create a tenant by accessing the URL exposed by the `hcl-uno-tenantmanager` microservice.
+ 6. Optionally, in the `uno.config.multitenant.tenantManagerIngressCertIssuer` parameter, enter the secret name of the issuer of the certificate that you want to use.
+
+ 7. After the deployment, you can create a tenant by accessing the URL exposed by the `hcl-uno-tenantmanager` microservice.
 
 Your multitenant environment is ready.
 
@@ -442,7 +444,7 @@ Although this parameter is not explicitly defined in the default `values.yaml` f
          # Default: 716800 (700 KB)
          max-size.bytes: 716800
 
-⚠️**Important**: This limit is strictly dependent on your Kafka configuration. Ensure that the value of webhook.max-size.bytes does not exceed the maximum message size (max.request.size) permitted by your Kafka broker.
+⚠️**Important**: This limit is strictly dependent on your Kafka configuration. The maximum request body size for webhooks is capped at 95% of the maximum byte size permitted for Kafka messages. Ensure that the value of webhook.max-size.bytes does not exceed the maximum message size (max.request.size) permitted by your Kafka broker.
 
 
 **UnoAIPilot**
