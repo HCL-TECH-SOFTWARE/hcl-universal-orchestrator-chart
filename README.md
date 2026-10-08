@@ -305,6 +305,8 @@ The values of the following parameters are placeholders used as an example. When
     uno.authentication.oidc.credentialSecret: put_oidc_secret_here
     uno.authentication.oidc.tlsVerification: required
 
+**Note**: Some OIDC providers prohibit wildcards in redirect URIs, which causes authentication to route through a fixed path (`/oidc-callback` by default) to safely support direct deep links. To use a custom path, configure the **uno.authentication.oidc.redirectPath** attribute in the **values.yaml** file.
+
 - Configuring the networking in the **values.yaml** file
 
   The HCL Universal Orchestrator server and console can use two different ways to route external traffic into the Kubernetes Service cluster:
