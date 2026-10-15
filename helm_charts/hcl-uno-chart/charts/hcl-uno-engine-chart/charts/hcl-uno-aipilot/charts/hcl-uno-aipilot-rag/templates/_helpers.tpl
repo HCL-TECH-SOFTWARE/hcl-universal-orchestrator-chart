@@ -108,15 +108,24 @@ release: {{ .Release.Name | quote }}
 {{- end -}}
 
 {{- define "rag.pull.secret" -}}
-imagePullSecrets:
-{{- if .Values.global.hclImagePullSecret  }}
-    - name: {{ tpl .Values.global.hclImagePullSecret .}}
+{{- $secrets := list -}}
+
+{{- if .Values.global.hclImagePullSecret }}
+{{- $secrets = append $secrets (tpl .Values.global.hclImagePullSecret .) -}}
 {{- end }}
+
 {{- if .Values.additionalPullSecret }}
-    - name: {{ tpl .Values.additionalPullSecret . }}
+{{- $secrets = append $secrets (tpl .Values.additionalPullSecret .) -}}
 {{- end }}
-    - name: sa-{{ .Release.Namespace }}
-    - name: sa-uno
+
+{{- $secrets = append $secrets (printf "sa-%s" .Release.Namespace) -}}
+{{- $secrets = append $secrets "sa-uno" -}}
+
+{{- $unique := uniq $secrets -}}
+imagePullSecrets:
+{{- range $unique }}
+  - name: {{ . }}
+{{- end }}
 {{- end -}}
 
 {{- define "postgres.password" -}}
@@ -142,9 +151,9 @@ imagePullSecrets:
 
 {{- define "rag.registry" -}}
 {{- if and .Values.global (eq .Values.global.hclImageRegistry "hclcr.io/sofy") -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if and .Values.global (eq .Values.global.hclImageRegistry "hclcr.io") -}}
-hclcr.io/uno
+hclcr.io/uno-ea
 {{- else if and .Values.global (eq .Values.global.hclImageRegistry "gcr.io/blackjack-209019") -}}
 gcr.io/blackjack-209019/services/uno
 {{- else if and .Values.global .Values.global.hclImageRegistry -}}
@@ -168,7 +177,15 @@ gcr.io/blackjack-209019/services/uno
 {{- end -}}
 
 {{- define "sltCommon.postgres.env.password" -}}
+{{- if or ( .Values.postgres.postgresPassword) (and ( .Values.postgres.postgresPasswordSecretName) ( .Values.postgres.postgresPasswordSecretKey)) }}
 {{ include "sltCommon.env.valueOrSecret" (list . "POSTGRES_PASSWORD" "postgres.postgresPassword") }}
+{{- else }}
+- name: POSTGRES_PASSWORD
+  valueFrom: 
+    secretKeyRef:
+      name: {{ printf "%s-postgres-password" .Release.Name | trunc 63 | trimSuffix "-" }}
+      key: postgres-password
+{{- end -}}
 {{- end -}}
 
 {{- define "sltCommon.init.postgres.certificate.env" -}}
