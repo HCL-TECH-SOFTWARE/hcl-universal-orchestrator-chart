@@ -386,9 +386,9 @@ Follow the steps below to enable and set up a multitenant environment on HCL Uni
 
     **Note**: Customize `multitenant.commonTenantDatabaseName` and `multitenant.tenantDbPrefix` to align with your organization's naming standards before 		deploying.
 
- 6. Optionally, in the `uno.config.multitenant.tenantManagerIngressCertIssuer` parameter, enter the secret name of the issuer of the certificate that you want to use.
+ 5. Optionally, in the `uno.config.multitenant.tenantManagerIngressCertIssuer` parameter, enter the secret name of the issuer of the certificate that you want to use.
 
- 7. After the deployment, you can create a tenant by accessing the URL exposed by the `hcl-uno-tenantmanager` microservice.
+ 6. After the deployment, you can create a tenant by accessing the URL exposed by the `hcl-uno-tenantmanager` microservice.
 
 Your multitenant environment is ready.
 
