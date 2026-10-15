@@ -305,6 +305,8 @@ The values of the following parameters are placeholders used as an example. When
     uno.authentication.oidc.credentialSecret: put_oidc_secret_here
     uno.authentication.oidc.tlsVerification: required
 
+**Note**: Some OIDC providers prohibit wildcards in redirect URIs, which causes authentication to route through a fixed path (`/oidc-callback` by default) to safely support direct deep links. To use a custom path, configure the **uno.authentication.oidc.redirectPath** attribute in the **values.yaml** file.
+
 - Configuring the networking in the **values.yaml** file
 
   The HCL Universal Orchestrator server and console can use two different ways to route external traffic into the Kubernetes Service cluster:
@@ -382,6 +384,8 @@ Follow the steps below to enable and set up a multitenant environment on HCL Uni
 
  4. Edit all the optional parameters of the `uno.config.multitenant` section according to your needs.
 
+    **Note**: Customize `multitenant.commonTenantDatabaseName` and `multitenant.tenantDbPrefix` to align with your organization's naming standards before 		deploying.
+
  5. Optionally, in the `uno.config.multitenant.tenantManagerIngressCertIssuer` parameter, enter the secret name of the issuer of the certificate that you want to use.
 
  6. After the deployment, you can create a tenant by accessing the URL exposed by the `hcl-uno-tenantmanager` microservice.
@@ -442,7 +446,7 @@ Although this parameter is not explicitly defined in the default `values.yaml` f
          # Default: 716800 (700 KB)
          max-size.bytes: 716800
 
-⚠️**Important**: This limit is strictly dependent on your Kafka configuration. Ensure that the value of webhook.max-size.bytes does not exceed the maximum message size (max.request.size) permitted by your Kafka broker.
+⚠️**Important**: This limit is strictly dependent on your Kafka configuration. The maximum request body size for webhooks is capped at 95% of the maximum byte size permitted for Kafka messages. Ensure that the value of webhook.max-size.bytes does not exceed the maximum message size (max.request.size) permitted by your Kafka broker.
 
 
 **UnoAIPilot**

@@ -1,0 +1,54 @@
+######################################################################
+# Licensed Materials Property of HCL*
+# (c) Copyright HCL Technologies Ltd. 2021, 2023. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+######################################################################
+{{ $fullName := include "fullname" . }}
+
+{{- $root := . -}}
+
+{{- $myList := include "uno.microservices.list" . | fromJsonArray -}}
+{{- range $myList}}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-{{ . }}
+  labels:
+    prometheus: "true"
+    prometheus.job.label: "kubernetes-services"
+{{ include "uno.common.label" $root | indent 4 }}
+  annotations:
+spec:
+  ports:
+    - name: https
+      port: 8443
+      targetPort: https
+  selector:
+    app: {{ $fullName }}-{{ . }}
+
+---
+{{- end}}
+
+# Headless services for all microservices on multitenant environments
+{{- if eq "true" (include "uno.enableMultitenant" $root) }}
+{{- range $myList}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-{{ . }}-headless
+  labels:
+{{ include "uno.common.label" $root | indent 4 }}
+  annotations:
+spec:
+  clusterIP: None
+  ports:
+    - name: https
+      port: 8443
+      targetPort: https
+  selector:
+    app: {{ $fullName }}-{{ . }}
+---
+{{- end -}}
+{{- end -}}

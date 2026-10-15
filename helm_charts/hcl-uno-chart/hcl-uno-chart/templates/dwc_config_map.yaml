@@ -1,0 +1,17 @@
+######################################################################
+# Licensed Materials Property of HCL*
+# (c) Copyright HCL Technologies Ltd. 2021, 2023. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+######################################################################
+
+{{- if .Values.global.enableConsole -}}
+{{ $fullName := include "fullname" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}-dwc-config
+data:
+  dwc.public.host:  {{include "uno.console.public.host" . |quote }}
+  dwc.public.port:  {{include "uno.console.public.port" . |quote }} 
+{{- end -}}

@@ -1,0 +1,30 @@
+######################################################################
+# Licensed Materials Property of HCL*
+# (c) Copyright HCL Technologies Ltd. 2021, 2023. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+######################################################################
+{{ $fullName := include "fullname" . }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}-engines-config
+  labels:
+{{ include "uno.common.label" . | indent 4 }}
+{{- if eq .Values.global.deploymentType  "aio" }}
+data:
+  uno.json: |
+      {
+          "name": "UnO",
+          "baseUrl": "https://{{ $fullName }}-console-aio:8443"
+      }     
+{{- else }}
+data:
+  uno.json: |
+      {
+          "name": "UnO",
+          "baseUrl": "https://{{ $fullName }}-gateway:8443"
+      }     
+{{- end }}
+

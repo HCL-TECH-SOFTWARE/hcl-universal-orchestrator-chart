@@ -1,0 +1,66 @@
+######################################################################
+# Licensed Materials Property of HCL*
+# (c) Copyright HCL Technologies Ltd. 2021, 2024. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+######################################################################
+{{- if .Values.deployment.global.podDisruptionBudget.enabled }}
+
+{{ $fullName := include "fullname" . }}
+
+{{- $root := . -}}
+{{- $myList := include "uno.microservices.list" . | fromJsonArray -}}
+{{- range $myList}}
+{{- $k := . -}}
+{{- $min := (coalesce (index $root.Values.deployment $k ).minTargetReplicas $root.Values.deployment.global.minTargetReplicas | default 1 | int) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullName }}-{{ $k }}-pdb
+  labels:
+    app: {{ $fullName }}-{{ $k }}
+{{ include "uno.common.label" $root | indent 4 }}
+spec:
+{{- if le $min 1 }}
+  minAvailable: 1
+{{- else }}
+  maxUnavailable: {{ $root.Values.deployment.global.podDisruptionBudget.maxUnavailable | default "33%"  }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: {{ $fullName }}-{{ $k }}
+      app.kubernetes.io/name: {{ $root.Release.Name | quote }}
+      uno.microservice.version: 2.1.7.0
+
+
+{{ end }}
+---
+
+{{- if .Values.global.extraImages }}
+{{- $extraImageList := include "uno.extraImages" . | fromJsonArray -}}
+{{- range $index, $extraImage := $extraImageList -}}
+{{- $min := (coalesce ($root.Values.deployment.extras).minTargetReplicas $root.Values.deployment.global.minTargetReplicas | default 1 | int) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullName }}-extra-{{ $index }}-pdb
+  labels:
+    app: {{ $fullName }}-extra-{{ $index }}
+{{ include "uno.common.label" $root | indent 4 }}
+spec:
+{{- if le $min 1 }}
+  minAvailable: 1
+{{- else }}
+  maxUnavailable: {{ $root.Values.deployment.global.podDisruptionBudget.maxUnavailable | default "33%" | quote }}
+{{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-extra-{{ $index }}
+      app.kubernetes.io/instance: {{ $fullName }}-extra-{{ $index }}
+
+{{ end }}
+---
+{{- end }}
+{{- end }}

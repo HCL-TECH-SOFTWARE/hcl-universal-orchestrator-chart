@@ -1,0 +1,99 @@
+######################################################################
+# Licensed Materials Property of HCL*
+# (c) Copyright HCL Technologies Ltd. 2021, 2023. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+######################################################################
+{{ $fullName := include "fullname" . }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}-plugins-config
+  labels:
+{{ include "uno.common.label" . | indent 4 }}
+data:
+  plugins.properties: |
+      com.hcl
+      com.ibm.scheduling.agent.apachespark
+      com.ibm.scheduling.agent.aws
+      com.ibm.scheduling.agent.azure
+      com.ibm.scheduling.agent.cloudant
+      com.ibm.scheduling.agent.cognos
+      com.ibm.scheduling.agent.database
+      com.ibm.scheduling.agent.datastage
+      com.ibm.scheduling.agent.ejb
+      com.ibm.scheduling.agent.filetransfer
+      com.ibm.scheduling.agent.hadoopfs
+      com.ibm.scheduling.agent.hadoopmapreduce
+      com.ibm.scheduling.agent.java
+      com.ibm.scheduling.agent.jobdurationpredictor
+      com.ibm.scheduling.agent.jobmanagement
+      com.ibm.scheduling.agent.jobstreamsubmission
+      com.ibm.scheduling.agent.jsr352javabatch
+      com.ibm.scheduling.agent.mqtt
+      com.ibm.scheduling.agent.oozie
+      com.ibm.scheduling.agent.oracleebusiness
+      com.ibm.scheduling.agent.pichannel
+      com.ibm.scheduling.agent.powercenter
+      com.ibm.scheduling.agent.restful
+      com.ibm.scheduling.agent.remotecommand
+      com.ibm.scheduling.agent.salesforce
+      com.ibm.scheduling.agent.sapbusinessobjects
+      com.ibm.scheduling.agent.saphanalifecycle
+      com.ibm.scheduling.agent.softlayer
+      com.ibm.scheduling.agent.sterling
+      com.ibm.scheduling.agent.variabletable
+      com.ibm.scheduling.agent.webspheremq
+      com.ibm.scheduling.agent.ws
+      com.ibm.scheduling.agent.j2ee
+      com.ibm.scheduling.agent.biginsights
+      com.ibm.scheduling.agent.jcl
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}-plugins-config-all
+  labels:
+{{ include "uno.common.label" . | indent 4 }}
+data:
+  plugins.properties: |
+      com.hcl
+      com.ibm.scheduling.agent.apachespark
+      com.ibm.scheduling.agent.aws
+      com.ibm.scheduling.agent.azure
+      com.ibm.scheduling.agent.biginsights
+      com.ibm.scheduling.agent.centralizedagentupdate
+      com.ibm.scheduling.agent.cloudant
+      com.ibm.scheduling.agent.cognos
+      com.ibm.scheduling.agent.database
+      com.ibm.scheduling.agent.datastage
+      com.ibm.scheduling.agent.ejb
+      com.ibm.scheduling.agent.filetransfer
+      com.ibm.scheduling.agent.hadoopfs
+      com.ibm.scheduling.agent.hadoopmapreduce
+      com.ibm.scheduling.agent.j2ee
+      com.ibm.scheduling.agent.java
+      com.ibm.scheduling.agent.jobdurationpredictor
+      com.ibm.scheduling.agent.jobmanagement
+      com.ibm.scheduling.agent.jobstreamsubmission
+      com.ibm.scheduling.agent.jsr352javabatch
+      com.ibm.scheduling.agent.mqtt
+      com.ibm.scheduling.agent.oozie
+      com.ibm.scheduling.agent.oracleebusiness
+      com.ibm.scheduling.agent.pichannel
+      com.ibm.scheduling.agent.powercenter
+      com.ibm.scheduling.agent.restful
+      com.ibm.scheduling.agent.remotecommand
+      com.ibm.scheduling.agent.salesforce
+      com.ibm.scheduling.agent.sapbusinessobjects
+      com.ibm.scheduling.agent.saphanalifecycle
+      com.ibm.scheduling.agent.softlayer
+      com.ibm.scheduling.agent.sterling
+      com.ibm.scheduling.agent.variabletable
+      com.ibm.scheduling.agent.webspheremq
+      com.ibm.scheduling.agent.ws
+      com.ibm.scheduling.agent.biginsights
+      com.ibm.scheduling.agent.jcl

@@ -1,0 +1,88 @@
+####################################################################
+# Licensed Materials Property of HCL*
+# (c) Copyright HCL Technologies Ltd. 2023. All rights reserved.
+#
+# * Trademark of HCL Technologies Limited
+####################################################################
+{{- if .Values.global.extraImages }}
+{{ $fullName := include "fullname" . }}
+{{ $baseImageName := include "baseImageName" . }}
+{{ $pluginConfig := printf "%s-%s" $fullName  "plugins-config" }}
+{{ $dwcInternalHost := include "uno.console.internal.host" . }}
+{{ $saName := include "uno.serviceAccount" . }}
+{{- $extraImageList := include "uno.extraImages" . | fromJsonArray -}}
+{{- $root := . -}}
+{{- range $index, $extraImage := $extraImageList -}}
+
+{{- $min := (coalesce ($root.Values.deployment.extras).minTargetReplicas $root.Values.deployment.global.minTargetReplicas | default 1) }}
+{{- $max := (coalesce ($root.Values.deployment.extras).maxTargetReplicas $root.Values.deployment.global.maxTargetReplicas | default 1) }}
+{{- $previous := (lookup "apps/v1" "Deployment" $root.Release.Namespace (printf "%s-extra-%d" $fullName $index)) }}
+
+{{- $replicas := $min }}
+{{- if and $previous $previous.spec.replicas }}
+{{- $replicas = $previous.spec.replicas | min $max | max $min }}
+# Keeping replicas from current deployment: {{ $replicas }}
+{{- end }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}-extra-{{ $index }}
+  labels:
+    app: {{ $fullName }}-extra-{{ $index }}
+spec:
+  replicas: {{ $replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-extra-{{ $index }}
+      app.kubernetes.io/instance: {{ $fullName }}-extra-{{ $index }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $fullName }}-extra-{{ $index }}
+        app.kubernetes.io/instance: {{ $fullName }}-extra-{{ $index }}
+    spec:
+      serviceAccountName: {{ $root.Values.global.serviceAccountName | default $saName }}
+      containers:
+        - name: {{ $fullName }}-extra-{{ $index }}-container
+{{ include "uno.containerSecurityContext"  $root | indent 10 }}
+          image:  {{ $extraImage }}
+          imagePullPolicy: {{ $root.Values.config.registry.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: packages.json
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: packages.json
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: "0.4"
+              memory: 256Mi
+            requests:
+              cpu: "0.2"
+              memory: 256Mi
+          env:
+            - name: PACKAGES_URL
+              value: http://{{ $fullName }}-extra-{{ $index }}:8080/
+            - name: LICENSE
+              value: {{ $root.Values.global.license | quote }}
+---
+
+{{- end }}
+{{- end }}
