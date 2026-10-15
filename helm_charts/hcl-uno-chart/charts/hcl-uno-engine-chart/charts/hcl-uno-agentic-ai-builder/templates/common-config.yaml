@@ -7,6 +7,7 @@
 # *******************************************************************************
 {{ $fullname := include "agenticbuilder.fullname" . }}
 {{ $unoFullName := include "uno.fullname" . }}
+{{- $enableMultitenancy := include "agenticbuilder.multitenancy.enabled" . -}}
 
 apiVersion:  v1
 kind:  ConfigMap
@@ -32,6 +33,11 @@ data:
     VALKEY_DB: {{ tpl (default "0" .Values.common.valkey.valkeyDb) . | quote }}
     VALKEY_SSL_VERIFY: {{ tpl (default "true" .Values.common.valkey.ssl.enabled) . | quote }}
     VALKEY_SSL_VERIFY_HOSTNAME: {{ tpl (default "true" .Values.common.valkey.ssl.hostnameValidation) . | quote }}
+    VALKEY_IAM_ENABLED : {{ tpl (default "false" .Values.common.valkey.valkeyIAMAuthenticationEnabled) . | quote }}
+    VALKEY_IAM_SERVICE_ACCOUNT:  {{ tpl .Values.common.valkey.valkeyIAMServiceAccount . | quote }}
+    VALKEY_IAM_SCOPES : {{ tpl (default "https://www.googleapis.com/auth/cloud-platform" .Values.common.valkey.valkeyIAMScopes) . | quote }}
+    VALKEY_CLUSTER_ENABLED: {{ tpl (default "false" .Values.common.valkey.valkeyClusterModeEnabled) . | quote }}
+    VALKEY_APPLICATION_PREFIX: {{ tpl (default "agenticbuilder" .Values.common.valkey.valkeyApplicationPrefix) . | quote }}
     # Rest Client Common Configuration
     AMS_HOSTNAME : {{ tpl (printf "%s-%s" (include "agenticbuilder.fullname" .) .Values.ams.name) . | quote }}
     AMS_PORT : {{ tpl (toString .Values.ams.port) . | quote }}
@@ -49,13 +55,29 @@ data:
     CREDENTIAL_MANAGER_SCHEMA: {{ tpl (default "https" .Values.common.rest.scheme) . | quote }}
     CREDENTIAL_MANAGER_SSL_VERIFY : {{ tpl (default "true" .Values.common.rest.ssl.enabled) . | quote }}
 
+    RUNNER_PROD_HOSTNAME : {{ tpl (printf "%s-%s-prod" (include "agenticbuilder.fullname" .) .Values.runner.name) . | quote }}
+    RUNNER_PROD_PORT : {{ tpl (toString .Values.runner.port) . | quote }}
+    RUNNER_PROD_PROXY_URL : {{default "" (tpl .Values.runner.proxyURL .) | quote }}
+    RUNNER_PROD_TIMEOUT: {{ tpl (default "30" .Values.common.rest.timeout) . | quote }}
+    RUNNER_PROD_HOSTNAME_VALIDATION : {{ tpl (default "true" .Values.common.rest.ssl.hostnameValidation) . | quote }}
+    RUNNER_PROD_SCHEMA : {{ tpl (default "https" .Values.common.rest.scheme) . | quote }}
+    RUNNER_PROD_SSL_VERIFY : {{ tpl (default "true" .Values.common.rest.ssl.enabled) . | quote }}
+
     UNO_HOSTNAME: {{ tpl .Values.uno.hostname . | quote }}
     UNO_PORT: {{ default "8443" (tpl (toString .Values.uno.port) .) | quote }}
     UNO_PROXY_URL: {{ default "" (tpl .Values.uno.proxyURL .) | quote }}
     UNO_TIMEOUT: {{ tpl (default "30" .Values.common.rest.timeout) . | quote }}
     UNO_HOSTNAME_VALIDATION: {{ tpl (default "true" .Values.common.rest.ssl.hostnameValidation) . | quote }}
     UNO_SCHEMA: {{ tpl (default "https" .Values.common.rest.scheme) . | quote }}
-    CREDENTIAL_MANAGER_SSL_VERIFY : {{ tpl (default "true" .Values.common.rest.ssl.enabled) . | quote }}
+    UNO_SSL_VERIFY : {{ tpl (default "true" .Values.common.rest.ssl.enabled) . | quote }}
+
+    IAA_HOSTNAME: {{ tpl .Values.iaa.hostname . | quote }}
+    IAA_PORT: {{ default "8443" (tpl (toString .Values.iaa.port) .) | quote }}
+    IAA_PROXY_URL: {{ default "" (tpl .Values.iaa.proxyURL .) | quote }}
+    IAA_TIMEOUT: {{ tpl (default "30" .Values.common.rest.timeout) . | quote }}
+    IAA_HOSTNAME_VALIDATION: {{ tpl (default "true" .Values.common.rest.ssl.hostnameValidation) . | quote }}
+    IAA_SCHEMA: {{ tpl (default "https" .Values.common.rest.scheme) . | quote }}
+    IAA_SSL_VERIFY : {{ tpl (default "true" .Values.common.rest.ssl.enabled) . | quote }}
 
     # SSL Configuration
     TRUSTSTORE_CA_FOLDER_PATH: "/ca"
@@ -86,9 +108,16 @@ data:
     OTEL_EXPORTER_OTLP_CERTIFICATE: {{ printf "/ca/otel/%s.crt" (tpl .Values.telemetry.telemetryExporterCertificate . ) }}
     {{- end }}
     OTEL_EXPORTER_OTLP_HEADERS: {{ tpl .Values.telemetry.telemetryExporterHeaders . | quote }}
+    OTEL_EXPORTER_OTLP_TRACES_HEADERS: {{ tpl .Values.telemetry.telemetryExporterTraceHeaders . | quote }}
     OTEL_EXPORTER_OTLP_TIMEOUT: {{ tpl .Values.telemetry.telemetryExporterTimeoutMillis . | quote }}
-    
-    # Authorization Configuration 
+    LOG_LEVEL: {{ tpl (default "INFO" .Values.common.config.logLevel) . | quote }}
+    # Authorization Configuration
+    ENABLE_MULTITENANCY: {{ tpl (printf "%v" $enableMultitenancy) . | quote }}
     ENABLE_AUTHENTICATION: {{ tpl (default "true" .Values.common.config.enableAuthentication) . | quote }}
     OIDC_SERVER_URL: {{ tpl .Values.authorization.oidcServerURL . | quote }}
     KEYCLOAK_REALM: {{ tpl .Values.common.config.keycloakRealm . | quote }}
+    JWT_PRIVATE_KEY_PATH : "/jwt/agenticbuilder/tls.key"
+    HCL_AUTHORIZATION_AGENTIC_AI_BUILDER_SYSTEM: "/jwt/agenticbuilder/tls.crt"
+    CALLBACK_URL: https://{{ $fullname }}-{{ .Values.ams.name }}:{{ default "8080" (tpl (toString .Values.ams.port) .) }}/key-resolution
+    UNOGENAIURL: {{ printf "https://%s-console:8443/ui/genai-proxy/uno/api/v1/ai/agent" (include "uno.fullname" .)  }}
+    TELEMETRY_PREFIX: "application_agenticbuilder_"
