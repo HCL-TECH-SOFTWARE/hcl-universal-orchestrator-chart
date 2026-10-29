@@ -261,7 +261,7 @@ prometheus.io/path: "/q/metrics"
 {{- end -}}
 
 {{- define "uno.common.label" -}}
-uno.microservice.version: 2.1.7.0-beta1
+uno.microservice.version: 2.1.8.0-beta1
 app.kubernetes.io/name: {{ .Release.Name | quote}}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -609,10 +609,20 @@ release: {{ .Release.Name | quote }}
 {{- end }}
 - name: QUARKUS_OIDC_TOKEN_STATE_MANAGER_ENCRYPTION_REQUIRED
   value: {{ .Values.authentication.oidc.encryptTokensInCookie | quote }}
+- name: QUARKUS_OIDC_TOKEN_STATE_MANAGER_ENCRYPTION_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Release.Name }}-uno-secret
+      key: OIDC_TOKEN_STATE_MANAGER_ENCRYPTION_SECRET
+      optional: false
 - name: QUARKUS_OIDC_TOKEN_STATE_MANAGER_SPLIT_TOKENS
   value: {{ .Values.authentication.oidc.splitTokensInCookie | quote }}
 - name: QUARKUS_OIDC_TLS_VERIFICATION
   value: {{ .Values.authentication.oidc.tlsVerification | quote }}
+{{- if .Values.authentication.oidc.redirectPath }}
+- name: QUARKUS_OIDC_AUTHENTICATION_REDIRECT_PATH
+  value: {{ .Values.authentication.oidc.redirectPath | quote }}
+{{- end }}
 {{- else }}
 - name: QUARKUS_OIDC_TENANT_ENABLED
   value: "false"
@@ -711,6 +721,14 @@ release: {{ .Release.Name | quote }}
 {{- if (.Values.config.engine).allowed_referer }}
 - name: UNO_ALLOWED_REFERER
   value: {{ .Values.config.engine.allowed_referer | quote }}
+{{- end }}
+{{- if .Values.config.webhooks.maxSizeBytes }}
+- name: WEBHOOK_MAX_SIZE_BYTES
+  value: {{  printf "%d" (int .Values.config.webhooks.maxSizeBytes) | quote }}
+{{- end }}
+{{- if .Values.kafka.maxRequestSize }}
+- name: MP_MESSAGING_CONNECTOR_SMALLRYE_KAFKA_MAX_REQUEST_SIZE
+  value: {{  printf "%d" (int .Values.kafka.maxRequestSize) | quote }}
 {{- end }}
 {{- if eq "true" (include "uno.enableMultitenant" .) }}
 - name: QUARKUS_PROFILE
@@ -1073,6 +1091,8 @@ release: {{ .Release.Name | quote }}
   value: "https://localhost:8443"
 - name: UNO_NOTIFICATION_CLIENT_URL
   value: "https://localhost:8443"
+- name: UNO_AIAGENT_INTERNAL_TOOLS_PROVIDERS
+  value: "https://localhost:8443"
 {{- else }}
 - name: UNO_IAA_CLIENT_URL
   value: https://{{ $fullName }}-iaa:8443
@@ -1098,6 +1118,8 @@ release: {{ .Release.Name | quote }}
   value: https://{{ $fullName }}-eventmanager:8443
 - name: UNO_NOTIFICATION_CLIENT_URL
   value: https://{{ $fullName }}-notification:8443
+- name: UNO_AIAGENT_INTERNAL_TOOLS_PROVIDERS
+  value: "https://{{ $fullName }}-gateway:8443,https://{{ $fullName }}-orchestrator:8443"
 {{- end }}
 - name: CONSOLE_LOGOUT_ENABLED
   value: {{ .Values.config.console.enableLogout | default "false" | quote}}

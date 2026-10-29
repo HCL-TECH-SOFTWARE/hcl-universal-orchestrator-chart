@@ -21,7 +21,7 @@ unvalidated TLS.
 
 {{- if .Values.uno.ingress.enabled }}
 External URLs (via Ingress):
-{{- if .Values.uno.config.multitenant.enabled }}
+{{- if eq "true" (include "uno.enableMultitenant" .) }}
   Console:        https://<tenantname>.{{ .Values.uno.deployment.console.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
   Gateway:        https://<tenantname>.{{ .Values.uno.deployment.gateway.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
   Agent Manager:  https://<tenantname>.{{ .Values.uno.deployment.agentmanager.ingressPrefix }}.{{ trimPrefix "." .Values.uno.ingress.baseDomainName }}
@@ -35,7 +35,7 @@ External URLs (via Ingress):
 
 {{- if .Values.uno.gatewayApi.enabled }}
 External URLs (via Gateway API):
-{{- if .Values.uno.config.multitenant.enabled }}
+{{- if eq "true" (include "uno.enableMultitenant" .) }}
   Console:        https://<tenantname>.{{ .Values.uno.deployment.console.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
   Gateway:        https://<tenantname>.{{ .Values.uno.deployment.gateway.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}
   Agent Manager:  https://<tenantname>.{{ .Values.uno.deployment.agentmanager.gatewayApiPrefix }}.{{ trimPrefix "." .Values.uno.gatewayApi.baseDomainName }}

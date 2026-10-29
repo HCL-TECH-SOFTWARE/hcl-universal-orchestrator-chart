@@ -58,9 +58,14 @@ spec:
 {{- $deploymentType := include "agenticbuilder.runner.list" . | fromJsonArray }}
 {{- range $deploymentType }}
 {{- $currentDeploymentType := . }}
+{{- $runnerServiceName := printf "%s-%s-%s" $fullname $.Values.runner.name $currentDeploymentType }}
   - "runner-{{ $currentDeploymentType }}"
   - {{ $fullname }}-runner-{{ $currentDeploymentType }}
   - {{ $fullname }}-runner-{{ $currentDeploymentType }}-headless
+  - {{ $runnerServiceName }}
+  - {{ $runnerServiceName }}.{{ $.Release.Namespace }}.svc.cluster.local
+  - {{ $runnerServiceName }}-headless
+  - {{ $runnerServiceName }}-headless.{{ $.Release.Namespace }}.svc.cluster.local
 {{- end }}
 {{- if or ( .Capabilities.APIVersions.Has "cert-manager.io/v1alpha2") ( .Capabilities.APIVersions.Has "cert-manager.io/v1")  }}
   privateKey:

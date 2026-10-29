@@ -32,6 +32,14 @@ common:
     # cpuAverageUtilization triggers autoscaler when average CPU usage exceeds this percentage.
     # Only applies when HPA is enabled.
     cpuAverageUtilization: 200
+  # Default workload update strategy for all Deployments, can be overridden at the service level.
+  # NOTE: `Recreate` tears down every pod before starting new ones and ignores the PodDisruptionBudget,
+  # because rollouts delete pods directly instead of going through the Eviction API.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
   # Pod Disruption Budget Configuration
   podDisruptionBudget:
     # enabled specifies whether a PodDisruptionBudget is enabled. Supported values are true and false.
@@ -59,6 +67,13 @@ common:
     valkeyIAMScopes: "https://www.googleapis.com/auth/cloud-platform"
     valkeyClusterModeEnabled: "false"
     valkeyApplicationPrefix: "agenticbuilder"
+    # Only the *SecretName/*SecretKey form below is supported for cert-manager-backed
+    # rotation; setting inline cert/certKey/certCa/ca *values* here has no effect
+    # (no volume or mount is rendered without a matching *SecretName).
+    # The four files (tls.crt, tls.key, certCA.crt, ca.crt) are projected into a
+    # single directory (/security/valkey) with no subPath, so cert-manager
+    # renewals propagate to the file on disk automatically within the kubelet's
+    # sync window (~60-90s with the default Watch strategy).
     ssl:
       enabled: "false"
       # Client Configuration for Mutual TLS
@@ -116,6 +131,13 @@ common:
     postgresAdminPasswordSecretKey: "password"
 
     # SSL Configuration for Postgres connection
+    # Only the *SecretName/*SecretKey form below is supported for cert-manager-backed
+    # rotation; setting inline cert/certKey/certCa/ca *values* here has no effect
+    # (no volume or mount is rendered without a matching *SecretName).
+    # The four files (tls.crt, tls.key, certCA.crt, ca.crt) are projected into a
+    # single directory (/security/postgres) with no subPath, so cert-manager
+    # renewals propagate to the file on disk automatically within the kubelet's
+    # sync window (~60-90s with the default Watch strategy).
     ssl:
       enabled: "false"
       # Client Configuration for Mutual TLS
@@ -150,6 +172,13 @@ common:
     timeout: "30"
     scheme: "https"
     # SSL Client Configuration
+    # Only the *SecretName/*SecretKey form below is supported for cert-manager-backed
+    # rotation; setting inline cert/certKey/certCa/ca *values* here has no effect
+    # (no volume or mount is rendered without a matching *SecretName).
+    # The four files (tls.crt, tls.key, certCA.crt, ca.crt) are projected into a
+    # single directory (/security/client) with no subPath, so cert-manager
+    # renewals propagate to the file on disk automatically within the kubelet's
+    # sync window (~60-90s with the default Watch strategy).
     ssl:
       enabled: "true"
       # Client Configuration for Mutual TLS
@@ -201,7 +230,8 @@ ams:
   #Image name
   imageName: hcl-agentic-ams
   proxyURL: ""
-  # Deployment strategy
+  # Optional override. If null, common.strategy is used.
+  strategy: null
   port: 8080
   autoscaler:
     # Optional override. If null, common.autoscaler.enabled is used.
@@ -236,9 +266,8 @@ credentialManager:
   #Image name
   imageName: hcl-agentic-cm
   proxyURL: ""
-  # Deployment strategy
-  strategy:
-    type: Recreate
+  # Optional override. If null, common.strategy is used.
+  strategy: null
   # The port on which the core service will be exposed
   port: 8000
   autoscaler:
@@ -396,7 +425,7 @@ image:
   # The registry where the image is hosted
   repository: hclcr.io/uno-ea
   # The tag/version of the images
-  tag: 2.1.7.0-beta1
+  tag: 2.1.8.0-beta1
   # The Pull Policy for the images
   imagePullPolicy: Always
 

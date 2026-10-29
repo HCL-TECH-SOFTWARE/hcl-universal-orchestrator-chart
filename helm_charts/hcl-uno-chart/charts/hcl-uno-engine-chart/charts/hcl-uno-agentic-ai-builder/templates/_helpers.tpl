@@ -389,44 +389,6 @@ true
 {{- end }}
 {{- end -}}
 
-{{- define "agenticbuilder.volume.valueOrSecret" -}}
-{{- $root := index . 0 -}}
-{{- $volumeName := index . 1 -}}
-{{- $base := index . 2 -}}
-{{- $defaultMode := index . 3 -}}
-{{- $filePath := index . 4 -}}
-{{- $defaultKey := "" -}}
-{{- if gt (len .) 5 }}
-  {{- $defaultKey = index . 5 -}}
-{{- end }}
-{{- $baseParts := splitList "." $base -}}
-{{- $parentPath := join "." ($baseParts | initial) -}}
-{{- $secretField := printf "%sSecretName" (last $baseParts) -}}
-{{- $secretKeyField := printf "%sSecretKey" (last $baseParts) -}}
-{{- $secretFieldPath := printf "%s.%s" $parentPath $secretField -}}
-{{- $secretKeyFieldPath := printf "%s.%s" $parentPath $secretKeyField -}}
-{{- $secretKeyValue := $defaultKey | trim -}}
-{{- if (include "agenticbuilder.exists.value" (list $root $secretKeyFieldPath))}}
-  {{- $secretKeyValue = include "agenticbuilder.get.value" (list $root $secretKeyFieldPath) -}}
-{{- else if not $secretKeyValue -}}
-    {{- fail (printf "Error: SecretKey field '%s' is missing in values and no default key provided. Please make sure to fill '%s'" $secretKeyFieldPath $secretKeyFieldPath ) -}}
-{{- end }}
-{{- if include "agenticbuilder.exists.value" (list $root $secretFieldPath) }}
-- name: {{ tpl $volumeName $root }}
-  secret:
-    defaultMode: {{ tpl $defaultMode $root  }}
-    secretName: {{ tpl (include "agenticbuilder.get.value" (list $root $secretFieldPath)) $root | quote }}
-    items:
-    - key:  {{ tpl $secretKeyValue $root | quote }}
-      path: {{ tpl $filePath $root }}
-{{- else if include "agenticbuilder.exists.value" (list $root $base) }}
-- name: {{ tpl $volumeName $root }}
-  emptyDir:
-    medium: Memory
-    sizeLimit: 50Mi
-{{- end }}
-{{- end }}
-
 {{- define "agenticbuilder.exists.valueOrSecret" -}}
 {{- $root := index . 0 -}}
 {{- $base := index . 1 -}}
@@ -778,57 +740,114 @@ initContainers:
 {{- include "agenticbuilder.env.valueOrSecret" (list . "POSTGRES_USER" "common.postgres.postgresUser") }}
 {{- end -}}
 
+{{/*
+agenticbuilder.commonssl.hasSecretSources
+Args: (list $root $base)
+  $root - the top-level template context (".")
+  $base - dotted values path to the ssl block, e.g. "common.postgres.ssl"
+Returns "true" iff at least one of <base>.certSecretName, <base>.certKeySecretName,
+<base>.certCaSecretName, <base>.caSecretName exists (per agenticbuilder.exists.value).
+Returns a truly empty string (no whitespace) otherwise, since a whitespace-only
+return is truthy in a Helm "if" and would silently re-enable an empty volume/mount.
+*/}}
+{{- define "agenticbuilder.commonssl.hasSecretSources" -}}
+{{- $root := index . 0 -}}
+{{- $base := index . 1 -}}
+{{- $certField := printf "%s.certSecretName" $base -}}
+{{- $certKeyField := printf "%s.certKeySecretName" $base -}}
+{{- $certCaField := printf "%s.certCaSecretName" $base -}}
+{{- $caField := printf "%s.caSecretName" $base -}}
+{{- if or (include "agenticbuilder.exists.value" (list $root $certField)) (include "agenticbuilder.exists.value" (list $root $certKeyField)) (include "agenticbuilder.exists.value" (list $root $certCaField)) (include "agenticbuilder.exists.value" (list $root $caField)) -}}
+{{- "true" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+agenticbuilder.commonssl.projected.source
+Args: (list $root $base $fieldName $defaultKey $path $mode)
+  $root       - the top-level template context (".")
+  $base       - dotted values path to the ssl block, e.g. "common.postgres.ssl"
+  $fieldName  - one of "cert", "certKey", "certCa", "ca" — matched against
+                <base>.<fieldName>SecretName / <base>.<fieldName>SecretKey
+  $defaultKey - secret key to use when <base>.<fieldName>SecretKey is unset
+  $path       - in-container filename to project the key to (tls.crt, tls.key,
+                certCA.crt, ca.crt) — must stay byte-identical across contexts
+  $mode       - file mode for this projected item (octal, e.g. 0644, 0600)
+Emits one `- secret:` entry under `projected.sources` only when
+<base>.<fieldName>SecretName exists; emits nothing otherwise, so the caller can
+safely include the result unconditionally for each of the four fields.
+*/}}
+{{- define "agenticbuilder.commonssl.projected.source" -}}
+{{- $root := index . 0 -}}
+{{- $base := index . 1 -}}
+{{- $fieldName := index . 2 -}}
+{{- $defaultKey := index . 3 -}}
+{{- $path := index . 4 -}}
+{{- $mode := index . 5 -}}
+{{- $secretFieldPath := printf "%s.%sSecretName" $base $fieldName -}}
+{{- $secretKeyFieldPath := printf "%s.%sSecretKey" $base $fieldName -}}
+{{- if (include "agenticbuilder.exists.value" (list $root $secretFieldPath)) }}
+{{- $secretKeyValue := $defaultKey | trim -}}
+{{- if (include "agenticbuilder.exists.value" (list $root $secretKeyFieldPath)) -}}
+  {{- $secretKeyValue = include "agenticbuilder.get.value" (list $root $secretKeyFieldPath) | trim -}}
+{{- end }}
+- secret:
+    name: {{ tpl (include "agenticbuilder.get.value" (list $root $secretFieldPath)) $root | quote }}
+    items:
+    - key: {{ tpl $secretKeyValue $root | quote }}
+      path: {{ $path }}
+      mode: {{ $mode }}
+{{- end }}
+{{- end -}}
+
+{{/*
+agenticbuilder.commonssl.volumeMounts
+Args: (list $root $volumeNamePrefix $base $folder)
+Emits exactly one mount for the <prefix>-common-ssl-volume projected volume
+(see agenticbuilder.commonssl.volume) at $folder as a plain directory mount —
+no subPath — so the four files it contains (tls.crt, tls.key, certCA.crt,
+ca.crt) are kept current by the kubelet on cert-manager renewal. Guarded by
+the same hasSecretSources predicate as agenticbuilder.commonssl.volume so the
+two never disagree on whether this context renders.
+*/}}
 {{- define "agenticbuilder.commonssl.volumeMounts" -}}
 {{- $root := index . 0 -}}
 {{- $volumeNamePrefix := index . 1  | lower -}}
 {{- $base := index . 2 -}}
 {{- $folder := index . 3 -}}
-
-{{- $certField := printf "%s.cert" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $certField )) }}
-- name: {{ tpl $volumeNamePrefix $root }}-common-ssl-cert-volume
-  mountPath: {{ printf "%s/tls.crt" (tpl $folder $root) }}
-  subPath: tls.crt
-{{- end }}
-{{- $certKeyField := printf "%s.certKey" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $certKeyField )) }}
-- name: {{ tpl $volumeNamePrefix $root }}-common-ssl-cert-key-volume
-  mountPath: {{ printf "%s/tls.key" (tpl $folder $root) }}
-  subPath: tls.key 
-{{- end }}
-{{- $certCaField := printf "%s.certCa" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $certKeyField )) }}
-- name: {{ tpl $volumeNamePrefix $root }}-common-ssl-cert-ca-volume
-  mountPath: {{ printf "%s/certCA.crt" (tpl $folder $root) }}
-  subPath: certCA.crt
-{{- end }}
-{{- $caField := printf "%s.ca" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $caField )) }}
-- name: {{ tpl $volumeNamePrefix $root }}-common-ssl-ca-volume
-  mountPath: {{ printf "%s/ca.crt" (tpl $folder $root) }}
-  subPath: ca.crt
+{{- if (include "agenticbuilder.commonssl.hasSecretSources" (list $root $base)) }}
+- name: {{ tpl $volumeNamePrefix $root }}-common-ssl-volume
+  mountPath: {{ tpl $folder $root }}
+  readOnly: true
 {{- end }}
 {{- end -}}
 
+{{/*
+agenticbuilder.commonssl.volume
+Args: (list $root $volumeNamePrefix $base)
+Emits a single `projected` volume named <prefix>-common-ssl-volume whose
+sources are the (up to four) secrets configured for this TLS context, each
+contributing its key under the filename the application already expects
+(tls.crt, tls.key, certCA.crt, ca.crt) in one directory. Guarded by
+agenticbuilder.commonssl.hasSecretSources so it stays in lockstep with
+agenticbuilder.commonssl.volumeMounts (both must agree on when the context
+renders — see design doc "Emptiness/consistency invariant").
+Note: mounted without subPath so cert-manager renewals propagate to disk via
+the kubelet's symlink-swap update (unlike subPath bind-mounts, which do not).
+*/}}
 {{- define "agenticbuilder.commonssl.volume" -}}
 {{- $root := index . 0 -}}
 {{- $volumeNamePrefix := index . 1  | lower -}}
 {{- $base := index . 2 -}}
-{{- $certField := printf "%s.cert" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $certField )) }}
-{{ include "agenticbuilder.volume.valueOrSecret" (list $root (printf "%s-common-ssl-cert-volume" $volumeNamePrefix) $certField "0644" "tls.crt" "tls.crt") }}
-{{- end }}
-{{- $certKeyField := printf "%s.certKey" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $certKeyField )) }}
-{{- include "agenticbuilder.volume.valueOrSecret" (list $root (printf "%s-common-ssl-cert-key-volume" $volumeNamePrefix) $certKeyField "0600" "tls.key" "tls.key") }}
-{{- end }}
-{{- $certCaField := printf "%s.certCa" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $certCaField )) }}
-{{- include "agenticbuilder.volume.valueOrSecret" (list $root (printf "%s-common-ssl-cert-ca-volume" $volumeNamePrefix) $certCaField "0644" "certCA.crt" "ca.crt") }}
-{{- end }}
-{{- $caField := printf "%s.ca" $base -}}
-{{- if (include "agenticbuilder.exists.valueOrSecret" (list $root $caField )) }}
-{{- include "agenticbuilder.volume.valueOrSecret" (list $root (printf "%s-common-ssl-ca-volume" $volumeNamePrefix) $caField "0644" "ca.crt" "ca.crt ") }}
+{{- if (include "agenticbuilder.commonssl.hasSecretSources" (list $root $base)) }}
+- name: {{ tpl $volumeNamePrefix $root }}-common-ssl-volume
+  projected:
+    defaultMode: 0644
+    sources:
+{{- include "agenticbuilder.commonssl.projected.source" (list $root $base "cert" "tls.crt" "tls.crt" "0644") | indent 4 }}
+{{- include "agenticbuilder.commonssl.projected.source" (list $root $base "certKey" "tls.key" "tls.key" "0600") | indent 4 }}
+{{- include "agenticbuilder.commonssl.projected.source" (list $root $base "certCa" "ca.crt" "certCA.crt" "0644") | indent 4 }}
+{{- include "agenticbuilder.commonssl.projected.source" (list $root $base "ca" "ca.crt" "ca.crt" "0644") | indent 4 }}
 {{- end }}
 {{- end -}}
 
@@ -876,7 +895,6 @@ Produces:
   K8S_POD_IP           — pod's IP (Downward API)
   K8S_NODE_NAME        — node name (Downward API)
   K8S_RELEASE_NAME     — Helm release name
-  K8S_RELEASE_VERSION  — Helm release revision number
   K8S_CHART_NAME       — chart name
   K8S_CHART_VERSION    — chart version
   K8S_APP_VERSION      — chart appVersion
@@ -900,8 +918,6 @@ Produces:
       fieldPath: spec.nodeName
 - name: K8S_RELEASE_NAME
   value: {{ .Release.Name | quote }}
-- name: K8S_RELEASE_VERSION
-  value: {{ .Release.Revision | quote }}
 - name: K8S_CHART_NAME
   value: {{ .Chart.Name | quote }}
 - name: K8S_CHART_VERSION

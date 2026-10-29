@@ -14,6 +14,16 @@
 {{- $root := . -}}
 {{- range $index, $extraImage := $extraImageList -}}
 
+{{- $min := (coalesce ($root.Values.deployment.extras).minTargetReplicas $root.Values.deployment.global.minTargetReplicas | default 1) }}
+{{- $max := (coalesce ($root.Values.deployment.extras).maxTargetReplicas $root.Values.deployment.global.maxTargetReplicas | default 1) }}
+{{- $previous := (lookup "apps/v1" "Deployment" $root.Release.Namespace (printf "%s-extra-%d" $fullName $index)) }}
+
+{{- $replicas := $min }}
+{{- if and $previous $previous.spec.replicas }}
+{{- $replicas = $previous.spec.replicas | min $max | max $min }}
+# Keeping replicas from current deployment: {{ $replicas }}
+{{- end }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,7 +31,7 @@ metadata:
   labels:
     app: {{ $fullName }}-extra-{{ $index }}
 spec:
-  replicas: 1
+  replicas: {{ $replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $fullName }}-extra-{{ $index }}

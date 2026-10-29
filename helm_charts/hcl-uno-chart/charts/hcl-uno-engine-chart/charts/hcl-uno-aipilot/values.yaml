@@ -115,12 +115,12 @@ pilotActions:
       # Maximum CPU allocation
       cpu: 300m
       # Maximum memory allocation
-      memory: 300Mi
+      memory: 1.5Gi
     requests:
       # Minimum CPU allocation
-      cpu: 100m
+      cpu: 200m
       # Minimum memory allocation
-      memory: 200Mi
+      memory: 1Gi
 
 certificates:
   # No enable if you want to use customized certificates

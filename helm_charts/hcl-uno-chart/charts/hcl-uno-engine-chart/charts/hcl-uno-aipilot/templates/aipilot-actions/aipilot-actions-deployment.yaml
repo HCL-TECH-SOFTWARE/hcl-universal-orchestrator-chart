@@ -62,7 +62,7 @@ spec:
           {{- include "aipilot.image" (list $root .Values.pilotActions) | nindent 10 -}}
           {{- include "aipilot.imagePullPolicy" (list $root .Values.pilotActions) | nindent 10 -}}          
           {{- include "aipilot.resources" .Values.pilotActions | nindent 10 }}
-          command: ["/bin/bash", "-c", "rasa run actions --auto-reload -p {{ default 5055 .Values.pilotActions.port }} --ssl-certificate /var/actions-secret/tls.crt --ssl-keyfile /var/actions-secret/tls.key"]
+          command: ["/bin/bash", "-c", "rasa run actions -p {{ default 5055 .Values.pilotActions.port }} --ssl-certificate /var/actions-secret/tls.crt --ssl-keyfile /var/actions-secret/tls.key"]
           ports:
             - containerPort: {{ default 5055 .Values.pilotActions.port }}
               name: port-{{ default 5055 .Values.pilotActions.port }}

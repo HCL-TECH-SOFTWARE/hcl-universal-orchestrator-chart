@@ -68,6 +68,13 @@ spec:
         - name: https-cert
           secret:
             secretName: {{ include "agenticbuilder.cert.name" $root }}
+        - name: https-cert-ca
+          secret:
+            defaultMode: 0644
+            secretName: {{ include "agenticbuilder.cert.name" $root }}
+            items:
+              - key: ca.crt
+                path: ca.crt
       containers:
         - name: "{{ $fullname }}-{{ $root.Values.runner.name }}"
 {{- include "agenticbuilder.image" (list $root $root.Values.runner) | nindent 10 }}
@@ -120,9 +127,8 @@ spec:
             - name: https-cert
               mountPath: "/https"
               readOnly: true
-            - name: https-cert
-              subPath: "ca.crt"
-              mountPath: "/ca/ca.crt"
+            - name: https-cert-ca
+              mountPath: "/ca/https"
               readOnly: true
 {{- include "agenticbuilder.commonssl.volumeMounts.definition" $root | indent 12 }}
 {{- include "agenticbuilder.hclauthorization.volume.mount" $root | indent 12 }}

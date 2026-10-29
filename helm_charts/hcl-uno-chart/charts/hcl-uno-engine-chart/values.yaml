@@ -18,11 +18,11 @@ global:
   # pluginImageRepository is the name of the repository that contains the image with tags for Automation Hub integrations.
   pluginImageRepository: hclcr.io/uno-ea
   # pluginImageName is the name of the image with tags for Automation Hub integrations.
-  pluginImageName: hcl-uno-automation-plugins:2.1.7.0-beta1
+  pluginImageName: hcl-uno-automation-plugins:2.1.8.0-beta1
   # extraImages is the list of images with tags containing OCLI and agent for download from engine.
   extraImages:
     - registry: hclcr.io/uno-ea
-      name: hcl-uno-external-pod:2.1.7.0-beta1
+      name: hcl-uno-external-pod:2.1.8.0-beta1
   customLabels:
     - name: "environment"
       value: "prod"
@@ -142,10 +142,15 @@ kafka:
   oauthTokenEndpointUrl:
   # topicReplicas is the number of replicas for the topic.
   topicReplicas: 1
+  # maxRequestSize specifies the maximum size of a request to Kafka in bytes.
+  maxRequestSize: 1048500
 config:
   aiChat:
     # Specifies the connection timeout for the connection to the AI Chat service. The value is in seconds. The default value is 300 seconds.
     timeout: 300
+  webhooks:
+    # maxSizeBytes specifies the maximum size of a webhook request body in bytes.
+    maxSizeBytes: 700000
   serviceAccount:
     # use the serviceAccount.annotations to add annotations to serviceAccount.
     annotations:
@@ -335,7 +340,7 @@ config:
     # pullPolicy defines when data is pulled from your event streaming platform. Supported values are Always, Never, IfNotPresent.
     pullPolicy: Always
     # tag is the tag of the image. The default value is latest.
-    tag: 2.1.7.0-beta1
+    tag: 2.1.8.0-beta1
   orchestrator:
     # Specifies for how long the Task Run History is retained (in ISO 8601 format, e.g., P400D).
     jobRunHistoryRetentionDuration: P400DT0H
@@ -475,6 +480,11 @@ config:
         model:
         estimatedInputTokens:
         estimatedOutputTokens:
+
+      synapse_agent:
+        model: gemini-3.1-flash-lite
+        estimatedInputTokens: 4000
+        estimatedOutputTokens: 200
 
   engine:
     # allowed_referer specifies the allowed referer for the engine and console in case of Invalid Referer.
@@ -631,6 +641,8 @@ authentication:
     jwtGroupClaimPath : ""
     # Is PKCE required for OIDC authentication flows. Supported values are true and false.
     pkceRequired : false
+    # redirectPath is the relative path for the OIDC authentication callback. Optional parameter, defaults to /oidc-callback
+    redirectPath:
 # bulkhead defines the policy to be used on the gateway endpoint for avoiding bulk requests and block DDOS attacks against these contexts.
 bulkhead:
   request:
@@ -808,6 +820,9 @@ deployment:
     maxTargetReplicas: 2
     # the database name used by tenant manager
     databaseName: "tenantmanager-db"
+  extras:
+    #minTargetReplicas: 2
+    #maxTargetReplicas: 3
 
 agenticAIBuilder:
   telemetry:
@@ -1150,7 +1165,7 @@ agenticAIBuilder:
     # The registry where the image is hosted
     repository: hclcr.io/uno-ea
     # The tag of the images
-    tag: 2.1.7.0-beta1
+    tag: 2.1.8.0-beta1
     # The Pull Policy for the images
     imagePullPolicy: Always
     init:
@@ -1162,7 +1177,7 @@ agenticAIBuilder:
 hclaipilot:  
   image:
     repository: hclcr.io/uno-ea
-    tag: 2.1.7.0-beta1
+    tag: 2.1.8.0-beta1
   
   channels:
     slackToken: ""
@@ -1324,7 +1339,7 @@ hclaipilot:
 
     container:
       registry: hclcr.io/uno-ea # Image name
-      tag: 2.1.7.0-beta1  # Image tag
+      tag: 2.1.8.0-beta1  # Image tag
     authorization:
       # The URL of the OpenID Connect (OIDC) server for the RAG service to authenticate the jwt token
       oidcServerURL: "https://uno-keycloak-ssl:8843"

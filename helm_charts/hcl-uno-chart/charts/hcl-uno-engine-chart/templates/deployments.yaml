@@ -312,7 +312,7 @@ spec:
           image:  {{ include "uno.repouno" $root }}/{{ $baseImageName }}{{ $k }}:{{ $root.Values.config.registry.tag }}
           imagePullPolicy: {{ $root.Values.config.registry.pullPolicy }}
 {{ include "uno.containerSecurityContext"  $root | indent 10 }}
-          args: [/bin/sh, -c, 'touch /opt/app/audit/audit.json ;tail -n+1 -F /opt/app/audit/audit.json']
+          args: [/bin/sh, -c, 'touch /opt/app/audit/audit.json ;tail -n+1 -F /opt/app/audit/audit.json 2>/dev/null']
           volumeMounts:
           - name: emptydir
             mountPath: /opt/app/audit
@@ -329,7 +329,7 @@ spec:
           image:  {{ include "uno.repouno" $root }}/{{ $baseImageName }}{{ $k }}:{{ $root.Values.config.registry.tag }}
           imagePullPolicy: {{ $root.Values.config.registry.pullPolicy }}
 {{ include "uno.containerSecurityContext"  $root | indent 10 }}
-          args: [/bin/sh, -c, 'touch /opt/app/audit/errors.json ;tail -n+1 -F /opt/app/audit/errors.json']
+          args: [/bin/sh, -c, 'touch /opt/app/audit/errors.json ;tail -n+1 -F /opt/app/audit/errors.json 2>/dev/null']
           volumeMounts:
           - name: emptydir
             mountPath: /opt/app/audit
