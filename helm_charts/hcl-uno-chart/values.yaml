@@ -36,8 +36,6 @@ global:
   extraImages:
     - registry: hclcr.io/uno-ea
       name: hcl-uno-external-pod:2.1.8.0-beta1
-    - registry: hclcr.io/wa
-      name: hcl-workload-automation-packages:10.2.8.00.20260727
   # customPluginImageName is the custom name of the image with tags for Automation Hub integrations.
   customPluginImageName:
   # serviceAccountName is the name of a custom service account to be used for deployments, for example to deploy HCL Workload Automation.
