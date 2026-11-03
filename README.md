@@ -89,16 +89,7 @@ Core:
  - hcl-uno-tenantmanager
  - hcl-uno-timer
  - hcl-uno-toolbox
- 
 
-
-UnO AI Pilot:
-
- - hcl-uno-pilot-notification
- - hcl-aipilot-backend
- - hcl-aipilot-core
- - hcl-aipilot-actions
- - hcl-aipilot-nlg
 
 UnO Agentic AI Builder:
 
@@ -120,15 +111,6 @@ Before you begin the deployment process, ensure your environment meets the follo
 **For Agentic AI Builder**
  - Valkey (Redis-compatible): Used as the in-memory data store. Acts as a drop-in replacement for Redis.
  - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/ContinuousDelivery/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
-
-
-**Note:** If you want to deploy both the Agentic AI Builder and the AI Pilot, you only need one Percona pgvector instance. 
-
-
- **For UnO AI Pilot**
- - Percona pgvector: Serves as the primary relational database for storing application data. This prerequisite is optional. The `global.postgres.usePercona` parameter enables the automatic installation of the database. By default, the `global.postgres.usePercona` parameter is set to true. For more information, see [Installing Required Dependencies (Valkey and PostgreSQL) https://help.hcl-software.com/UnO/ContinuousDelivery/UnO%20Agentic%20AI%20Builder/agenticai__installation213.html] 
-
- **Note:** If you want to deploy both the Agentic AI Builder and the AI Pilot, you only need one Percona pgvector instance.
 
  
 **Strongly recommended**
@@ -402,16 +384,11 @@ For example:
 
 In this case, the recipient receives emails originating from John with the sending address noreply@uno.com.
 
-On multitenant environments, you can edit the display name used for email notifications by editing the `uno.config.multitenant.eMailSender` parameter. 
+On multitenant environments, you can edit the display name used for email notifications by editing the `uno.config.multitenant.eMailSender` parameter.
 
-**AI Agents**
+**Generative AI features**
 
-You can create an AI agent using three different agent types: External MCP, Basic, and Agentic AI Builder. For more information, see [Managing agent types in the AI agent
-](https://help.hcl-software.com/UnO/ContinuousDelivery/Orchestrating/to_manage_agent_types.html).
-
-**Generative workflows and knowledge base**
-
-You can enable the generative features of the AI Agent and the UnO AI Pilot for both workflow generation and generative knowledge base by setting the following parameter in the **values.yaml** file of the Helm chart to true:
+You can enable the generative AI features by setting the following parameter in the **values.yaml** file of the Helm chart to true:
 
     uno.config.genai.enabled: true
 
@@ -425,6 +402,11 @@ Add your MHS details to your `values.yaml` configuration:
 	  # Key of Deployment on MHS license server
       licenseServerKey: "<your_mhs_license_server_key>"
  
+
+**AI Agents**
+
+You can create an AI agent using three different agent types: External MCP, Basic, and Agentic AI Builder. For more information, see [Managing agent types in the AI agent
+](https://help.hcl-software.com/UnO/ContinuousDelivery/Orchestrating/to_manage_agent_types.html).
 
 
 **Webhook payload limits**
@@ -759,9 +741,6 @@ For more information about using Grafana dashboards see [Dashboards overview](ht
 
 *  Limited to amd64 platforms.
 *  Anonymous connections are not permitted.
-
-## AI Pilot Knowledge base
-To ensure a user can import, export, or delete the custom knowledge base, they must have the AI_PILOT_ADMINISTRATOR role. By default, this role is assigned to all administrator accounts.
 
 ## Documentation
 
