@@ -347,8 +347,8 @@ uno:
       sessionTimeoutMinutes: 30
 
     genai:
-      # Enables the AI Agent and AI Pilot generative AI features. Supported values are true and false.
-      # By enabling this feature with internal as false, you agree that AI Agent and AI Pilot prompts will be sent to HCL Software.
+      # Enables generative AI features. Supported values are true and false.
+      # By enabling this feature with internal as false, you agree that your prompts will be sent to HCL Software.
       # We can collect statistical data for analytics and licensing purposes, but we won't retain the prompt content.
       # All information will be handled according to HCL Software privacy policy.
       enabled: false
@@ -1160,7 +1160,6 @@ uno:
           # Whether to validate the hostname in the Valkey certificate
           hostnameValidation : "true"
 
-        # By default the values are configured to work with the default pgvector deployed by UNOAIPilot.
         # If you want to use a different PostgreSQL service, you can override the values below
         # to point to your PostgreSQL service.
       postgres:
